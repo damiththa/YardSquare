@@ -79,15 +79,47 @@ class GCPDataStore:
         except Exception:
             self.gcp_live_connected = False
 
+    @staticmethod
+    def _to_firestore_doc(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert nested arrays (e.g. border_polygon_lat_lng [[lat, lng], ...]) into Firestore-valid maps."""
+        import copy
+        doc = copy.deepcopy(data)
+        zones = doc.get("zones")
+        if isinstance(zones, dict) and isinstance(zones.get("border_polygon_lat_lng"), list):
+            converted = []
+            for pt in zones["border_polygon_lat_lng"]:
+                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                    converted.append({"lat": float(pt[0]), "lng": float(pt[1])})
+                elif isinstance(pt, dict):
+                    converted.append(pt)
+            zones["border_polygon_lat_lng"] = converted
+        return doc
+
+    @staticmethod
+    def _from_firestore_doc(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Restore Firestore map points [{'lat': ..., 'lng': ...}] back to [[lat, lng], ...]."""
+        import copy
+        doc = copy.deepcopy(data)
+        zones = doc.get("zones")
+        if isinstance(zones, dict) and isinstance(zones.get("border_polygon_lat_lng"), list):
+            restored = []
+            for pt in zones["border_polygon_lat_lng"]:
+                if isinstance(pt, dict) and "lat" in pt and "lng" in pt:
+                    restored.append([float(pt["lat"]), float(pt["lng"])])
+                elif isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                    restored.append([float(pt[0]), float(pt[1])])
+            zones["border_polygon_lat_lng"] = restored
+        return doc
+
     def _set_doc(self, base_collection: str, doc_id: str, data: Dict[str, Any]) -> None:
         col_name = self.settings.collection_name(base_collection)
+        self._mem_collections.setdefault(col_name, {})[doc_id] = data
         if self.gcp_live_connected and self.firestore_client is not None:
             try:
-                self.firestore_client.collection(col_name).document(doc_id).set(data)
-                return
+                fs_payload = self._to_firestore_doc(data)
+                self.firestore_client.collection(col_name).document(doc_id).set(fs_payload)
             except Exception:
                 pass
-        self._mem_collections.setdefault(col_name, {})[doc_id] = data
 
     def _get_doc(self, base_collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
         col_name = self.settings.collection_name(base_collection)
@@ -95,7 +127,11 @@ class GCPDataStore:
             try:
                 snap = self.firestore_client.collection(col_name).document(doc_id).get()
                 if snap.exists:
-                    return snap.to_dict()
+                    raw = snap.to_dict()
+                    if raw:
+                        restored = self._from_firestore_doc(raw)
+                        self._mem_collections.setdefault(col_name, {})[doc_id] = restored
+                        return restored
             except Exception:
                 pass
         return self._mem_collections.get(col_name, {}).get(doc_id)
@@ -104,10 +140,17 @@ class GCPDataStore:
         col_name = self.settings.collection_name(base_collection)
         if self.gcp_live_connected and self.firestore_client is not None:
             try:
-                return [doc.to_dict() for doc in self.firestore_client.collection(col_name).stream()]
+                docs = [
+                    self._from_firestore_doc(doc.to_dict())
+                    for doc in self.firestore_client.collection(col_name).stream()
+                    if doc.exists
+                ]
+                if docs:
+                    return docs
             except Exception:
                 pass
         return list(self._mem_collections.get(col_name, {}).values())
+
 
     def _build_planted_item_from_catalog(
         self,

@@ -117,7 +117,7 @@
       "pos": [620, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 526, "label": "Split geocoder, OSM parcel & spatial analyzer" },
+        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 600, "label": "Split geocoder, OSM parcel & spatial analyzer" },
         { "path": "app/services/w3w_service.py", "line": 1, "end_line": 98, "label": "W3W v3 resolver & 402 circuit breaker" }
       ]
     },
@@ -131,7 +131,7 @@
       "pos": [620, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 305, "label": "Firestore dev_*/prod_* & GCS photo store" },
+        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 348, "label": "Firestore dev_*/prod_* & GCS photo store" },
         { "path": "app/models.py", "line": 1, "end_line": 225, "label": "Pydantic v2 YardMap & PlantedItem schemas" }
       ]
     },
@@ -162,7 +162,7 @@
     {
       "id": "photon_overpass_osm",
       "type": "external",
-      "label": "Photon & OSM Overpass",
+      "label": "US E-911, Photon & OSM",
       "sublabel": "$0 Suggest & Building Polys",
       "tag": "0 Google quota",
       "pos": [910, 240],

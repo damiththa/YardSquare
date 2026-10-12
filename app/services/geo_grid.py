@@ -391,39 +391,82 @@ def autocomplete_addresses(query: str, limit: int = 5) -> Dict[str, Any]:
     provider_used = "local_yard_catalog"
     if len(results) < limit:
         try:
-            with httpx.Client(timeout=2.0) as client:
-                resp = client.get(
-                    settings.PHOTON_AUTOCOMPLETE_URL,
+            with httpx.Client(timeout=1.5) as client:
+                # 1. <100ms US E-911 rooftop address suggest index ($0.00, 0 Google quota)
+                suggest_resp = client.get(
+                    "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/suggest",
                     params={
-                        "q": cleaned,
-                        "limit": max(limit * 2, 8),
-                        "lang": "en",
-                        "lat": settings.DEFAULT_FALLBACK_LAT,
-                        "lon": settings.DEFAULT_FALLBACK_LNG,
+                        "text": cleaned,
+                        "countryCode": "USA",
+                        "category": "Point Address,Street Address",
+                        "maxSuggestions": limit,
+                        "f": "json",
                     },
                     headers={"User-Agent": settings.USER_AGENT_HEADER},
                 )
-                if resp.status_code == 200:
-                    payload = resp.json()
-                    for feat in payload.get("features") or []:
-                        parsed = _format_photon_feature(feat, typed_house_number=typed_house_num)
-                        if not parsed:
+                if suggest_resp.status_code == 200:
+                    for item in suggest_resp.json().get("suggestions") or []:
+                        raw_text = str(item.get("text") or "").strip()
+                        if not raw_text:
                             continue
-                        norm_key = parsed["formatted_address"].lower()
+                        clean_fmt = re.sub(r",\s*USA$", "", raw_text, flags=re.IGNORECASE).strip()
+                        parts = [p.strip() for p in clean_fmt.split(",") if p.strip()]
+                        if not parts:
+                            continue
+                        street_line = parts[0]
+                        city_state_zip = ", ".join(parts[1:]) if len(parts) > 1 else "US"
+                        norm_key = clean_fmt.lower()
                         if norm_key in seen_addresses:
                             continue
                         seen_addresses.add(norm_key)
-                        results.append(parsed)
-                        _AUTOCOMPLETE_FALLBACK_COORDS[norm_key] = (
-                            parsed["fallback_lat"],
-                            parsed["fallback_lng"],
-                            parsed["formatted_address"],
+                        results.append(
+                            {
+                                "formatted_address": clean_fmt,
+                                "street_line": street_line,
+                                "city_state_zip": city_state_zip,
+                                "fallback_lat": None,
+                                "fallback_lng": None,
+                                "source": "us_e911_suggest",
+                                "house_number_preserved": False,
+                            }
                         )
-                        provider_used = "photon_osm_split_pipeline"
+                        provider_used = "us_e911_photon_split_pipeline"
                         if len(results) >= limit:
                             break
+
+                # 2. Photon (OpenStreetMap) fallback without slow spatial decay params
+                if len(results) < limit:
+                    resp = client.get(
+                        settings.PHOTON_AUTOCOMPLETE_URL,
+                        params={
+                            "q": cleaned,
+                            "limit": max(limit * 2, 8),
+                            "lang": "en",
+                        },
+                        headers={"User-Agent": settings.USER_AGENT_HEADER},
+                    )
+                    if resp.status_code == 200:
+                        payload = resp.json()
+                        for feat in payload.get("features") or []:
+                            parsed = _format_photon_feature(feat, typed_house_number=typed_house_num)
+                            if not parsed:
+                                continue
+                            norm_key = parsed["formatted_address"].lower()
+                            if norm_key in seen_addresses:
+                                continue
+                            seen_addresses.add(norm_key)
+                            results.append(parsed)
+                            _AUTOCOMPLETE_FALLBACK_COORDS[norm_key] = (
+                                parsed["fallback_lat"],
+                                parsed["fallback_lng"],
+                                parsed["formatted_address"],
+                            )
+                            provider_used = "photon_osm_split_pipeline"
+                            if len(results) >= limit:
+                                break
         except Exception:
             pass
+
 
     final_suggestions = results[:limit]
     if len(_AUTOCOMPLETE_CACHE) > 256:
@@ -661,12 +704,43 @@ def geocode_address_to_yard_parcel(
         fb_lat, fb_lng, fb_fmt = _AUTOCOMPLETE_FALLBACK_COORDS[lowered]
         return _build_geocoded_parcel_payload(fb_fmt, fb_lat, fb_lng, precision_source="photon_osm_fallback")
 
+    # $0 US E-911 rooftop coordinate fallback when Google Maps key is not set
+    try:
+        with httpx.Client(timeout=1.8) as client:
+            cand_resp = client.get(
+                "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates",
+                params={
+                    "SingleLine": street_address.strip(),
+                    "countryCode": "USA",
+                    "maxLocations": 1,
+                    "f": "json",
+                },
+                headers={"User-Agent": settings.USER_AGENT_HEADER},
+            )
+            if cand_resp.status_code == 200:
+                cands = cand_resp.json().get("candidates") or []
+                if cands:
+                    loc = cands[0].get("location") or {}
+                    if "y" in loc and "x" in loc:
+                        lat = round(float(loc["y"]), 6)
+                        lng = round(float(loc["x"]), 6)
+                        _GEOCODE_CACHE[lowered] = (lat, lng, street_address.strip())
+                        return _build_geocoded_parcel_payload(
+                            street_address.strip(),
+                            lat,
+                            lng,
+                            precision_source="us_e911_rooftop_fallback",
+                        )
+    except Exception:
+        pass
+
     digest = hashlib.sha256(lowered.encode("utf-8")).hexdigest()
     lat_offset = ((int(digest[:6], 16) % 2000) - 1000) * 0.0001
     lng_offset = ((int(digest[6:12], 16) % 2000) - 1000) * 0.0001
     lat = round(settings.DEFAULT_FALLBACK_LAT + lat_offset, 6)
     lng = round(settings.DEFAULT_FALLBACK_LNG + lng_offset, 6)
     return _build_geocoded_parcel_payload(street_address.strip(), lat, lng, precision_source="deterministic_fallback")
+
 
 
 def _build_geocoded_parcel_payload(
