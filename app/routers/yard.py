@@ -7,7 +7,9 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from app.models import (
+    BorderUpdateRequest,
     CareLogCreateRequest,
+    ParcelZoneMap,
     PlantCreateRequest,
     PlantPhoto,
     YardAnalysisRequest,
@@ -31,6 +33,7 @@ class GeocodeRequest(BaseModel):
     fallback_lat: Optional[float] = None
     fallback_lng: Optional[float] = None
     apply_to_yard_id: Optional[str] = None
+    force_reset_border: bool = False
 
 
 class GpsToSquareRequest(BaseModel):
@@ -53,23 +56,49 @@ def address_autocomplete(
 def geocode_and_extract_parcel(req: GeocodeRequest) -> Dict[str, Any]:
     """
     Stage 2 Rooftop Geocode + OSM Overpass Building/Parcel Footprint + USDA Hardiness Zone.
-    Optionally updates the target yard's address, center coordinates, and initial border zones.
+    Preserves previously saved custom fence/border adjustments (`user_adjusted_custom_border`)
+    for the same street address unless `force_reset_border=True` is requested.
     """
     parcel = geocode_address_to_yard_parcel(
         street_address=req.street_address,
         fallback_lat=req.fallback_lat,
         fallback_lng=req.fallback_lng,
     )
+    parcel["remembered_custom_border"] = False
     if req.apply_to_yard_id:
         store = get_store()
         yard = store.get_yard(req.apply_to_yard_id)
         if yard:
-            yard.street_address = parcel["formatted_address"]
+            new_fmt = (parcel["formatted_address"] or "").strip()
+            same_address = (yard.street_address or "").strip().lower() == new_fmt.lower()
+            remembered_yard = store.find_yard_by_address(new_fmt)
+
+            yard.street_address = new_fmt
             yard.parcel_center_lat = parcel["parcel_center_lat"]
             yard.parcel_center_lng = parcel["parcel_center_lng"]
             yard.usda_zone = parcel["usda_zone"]
             yard.usda_min_temp_f = parcel["usda_min_temp_f"]
-            yard.zones = parcel["zones"]
+
+            if (
+                not req.force_reset_border
+                and same_address
+                and yard.zones
+                and yard.zones.footprint_source == "user_adjusted_custom_border"
+            ):
+                parcel["zones"] = yard.zones.model_dump()
+                parcel["remembered_custom_border"] = True
+            elif (
+                not req.force_reset_border
+                and remembered_yard
+                and remembered_yard.zones
+                and remembered_yard.zones.footprint_source == "user_adjusted_custom_border"
+            ):
+                yard.zones = remembered_yard.zones
+                parcel["zones"] = remembered_yard.zones.model_dump()
+                parcel["remembered_custom_border"] = True
+            else:
+                yard.zones = ParcelZoneMap(**parcel["zones"])
+
             store.save_yard(yard)
     return parcel
 
@@ -94,6 +123,23 @@ def update_yard_map(yard_id: str, yard_update: YardMap) -> YardMap:
     """Save full YardMap state (adjusted borders, spigots, waypoints, and planted items) to Firestore."""
     yard_update.yard_id = yard_id
     return get_store().save_yard(yard_update)
+
+
+@router.put("/{yard_id}/borders", response_model=YardMap)
+def update_yard_borders_endpoint(yard_id: str, req: BorderUpdateRequest) -> YardMap:
+    """
+    Save adjusted property borders (fence perimeter, house roof, garage/shed, patio, septic/utility,
+    and out-of-bounds cells) to Cloud Firestore so the homeowner's custom yard layout is remembered.
+    """
+    try:
+        return get_store().update_yard_borders(
+            yard_id=yard_id,
+            zones=req.zones,
+            yard_name=req.yard_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
 
 
 @router.post("/{yard_id}/analyze", response_model=YardSafetyAndHoseReport)

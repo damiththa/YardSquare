@@ -635,6 +635,59 @@ def extract_actual_land_and_footprints(
     )
 
 
+def recalculate_border_polygon_from_zones(
+    center_lat: float,
+    center_lng: float,
+    zones: ParcelZoneMap,
+    grid_rows: Optional[int] = None,
+    grid_cols: Optional[int] = None,
+) -> List[List[float]]:
+    """
+    Recompute the outer property border GPS polygon (`[[lat, lng], ...]`) from the homeowner's
+    adjusted `fence_border_cells` (or active inside-lot cells) so custom fence dimensions persist
+    accurately in Cloud Firestore.
+    """
+    settings = get_settings()
+    rows = grid_rows or settings.DEFAULT_GRID_ROWS
+    cols = grid_cols or settings.DEFAULT_GRID_COLS
+
+    fence_pts = [parse_cell_label(lbl) for lbl in (zones.fence_border_cells or [])]
+    valid_fence = [pt for pt in fence_pts if pt is not None]
+
+    if valid_fence:
+        min_r = min(pt[0] for pt in valid_fence)
+        max_r = max(pt[0] for pt in valid_fence)
+        min_c = min(pt[1] for pt in valid_fence)
+        max_c = max(pt[1] for pt in valid_fence)
+    else:
+        oob_set = set(zones.out_of_bounds_cells or [])
+        road_set = set(zones.road_apron_cells or [])
+        inside_pts = [
+            (r, c)
+            for r in range(rows)
+            for c in range(cols)
+            if format_cell_label(r, c) not in oob_set and format_cell_label(r, c) not in road_set
+        ]
+        if not inside_pts:
+            return zones.border_polygon_lat_lng or []
+        min_r = min(pt[0] for pt in inside_pts)
+        max_r = max(pt[0] for pt in inside_pts)
+        min_c = min(pt[1] for pt in inside_pts)
+        max_c = max(pt[1] for pt in inside_pts)
+
+    nw_lat, nw_lng = grid_cell_to_lat_lng(center_lat, center_lng, min_r, min_c, rows, cols)
+    ne_lat, ne_lng = grid_cell_to_lat_lng(center_lat, center_lng, min_r, max_c, rows, cols)
+    se_lat, se_lng = grid_cell_to_lat_lng(center_lat, center_lng, max_r, max_c, rows, cols)
+    sw_lat, sw_lng = grid_cell_to_lat_lng(center_lat, center_lng, max_r, min_c, rows, cols)
+    return [
+        [nw_lat, nw_lng],
+        [ne_lat, ne_lng],
+        [se_lat, se_lng],
+        [sw_lat, sw_lng],
+    ]
+
+
+
 def geocode_address_to_yard_parcel(
     street_address: str,
     fallback_lat: Optional[float] = None,

@@ -40,26 +40,26 @@
       "id": "yard_companion_ui",
       "type": "frontend",
       "label": "Yard Companion Studio",
-      "sublabel": "3m W3W Grid, Border & Seasons",
+      "sublabel": "Web-First 3m Grid & Fence Box",
       "brand": "javascript",
-      "tag": "browser UI",
+      "tag": "Phase 1 Web UI",
       "pos": [40, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/index.html", "line": 1, "end_line": 539, "label": "Interactive 3m W3W grid, border brush & 3×3 sub-square UI" }
+        { "path": "app/static/index.html", "line": 1, "end_line": 1563, "label": "Web-First 3m W3W grid, Fence Box designer & auto-saved border UI" }
       ]
     },
     {
       "id": "mobile_walk_pwa",
       "type": "frontend",
       "label": "Mobile Yard Walk PWA",
-      "sublabel": "GPS square locator & sw.js",
+      "sublabel": "Phase 2: GPS walk & sw.js",
       "brand": "javascript",
-      "tag": "offline PWA",
+      "tag": "Phase 2 mobile",
       "pos": [40, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/yard_walk.html", "line": 1, "end_line": 112, "label": "Mobile GPS square matcher & 1-tap care view" },
+        { "path": "app/static/yard_walk.html", "line": 1, "end_line": 112, "label": "Phase 2 mobile GPS square matcher & 1-tap care view" },
         { "path": "app/static/sw.js", "line": 1, "end_line": 22, "label": "Offline Service Worker cache" }
       ]
     },
@@ -103,7 +103,7 @@
       "size": [168, 68],
       "sources": [
         { "path": "app/main.py", "line": 1, "end_line": 104, "label": "FastAPI entrypoint & /architecture" },
-        { "path": "app/routers/yard.py", "line": 1, "end_line": 166, "label": "Parcel, border, plant & care router" },
+        { "path": "app/routers/yard.py", "line": 1, "end_line": 217, "label": "Parcel, PUT /borders, remembered fence & plant router" },
         { "path": "app/routers/w3w.py", "line": 1, "end_line": 44, "label": "What3Words 3m square router" }
       ]
     },
@@ -111,13 +111,13 @@
       "id": "geo_parcel_engine",
       "type": "backend",
       "label": "3m Grid & Land Engine",
-      "sublabel": "OSM footprints, Hose & Roots",
+      "sublabel": "OSM footprints & Fence Polygon",
       "brand": "python",
       "tag": "spatial math",
       "pos": [620, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 600, "label": "Split geocoder, OSM parcel & spatial analyzer" },
+        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1059, "label": "US E-911 suggest, OSM parcel, fence polygon sync & spatial analyzer" },
         { "path": "app/services/w3w_service.py", "line": 1, "end_line": 98, "label": "W3W v3 resolver & 402 circuit breaker" }
       ]
     },
@@ -125,14 +125,14 @@
       "id": "firestore_gcs_store",
       "type": "database",
       "label": "Firestore & GCS Media",
-      "sublabel": "dev_*/prod_* yards & photos",
+      "sublabel": "Remembered fences & yards",
       "brand": "firebase",
       "tag": "nam5 store",
       "pos": [620, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 348, "label": "Firestore dev_*/prod_* & GCS photo store" },
-        { "path": "app/models.py", "line": 1, "end_line": 225, "label": "Pydantic v2 YardMap & PlantedItem schemas" }
+        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 470, "label": "Firestore dev_*/prod_*, custom border memory & GCS store" },
+        { "path": "app/models.py", "line": 1, "end_line": 287, "label": "Pydantic v2 YardMap, BorderUpdateRequest & PlantedItem schemas" }
       ]
     },
     {
@@ -296,11 +296,11 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "Living 3m×3m W3W Yard & 3×3 Sub-Square Studio",
+      "title": "Web-First 3m×3m W3W Yard & Fence Studio",
       "items": [
         "Interactive 26×18 (3m×3m) What3Words property grid with Spring/Summer/Autumn/Winter foliage switcher",
-        "Interactive Land & Border Brush to adjust property lot lines, house roof, garage, patio & septic zones",
-        "3×3 (1m×1m) Sub-Square Inspector for dense garden beds + 1-tap care logging (Watered, Pruned, Fed, Harvested)"
+        "Fence Box Drag Designer, 1-Click W/E/N Fence Perimeter Nudge & auto-saved Cloud Firestore border memory",
+        "3×3 (1m×1m) Sub-Square Inspector for dense garden beds + 1-tap care logging (Phase 2: Mobile Walk PWA)"
       ]
     },
     {
@@ -308,7 +308,7 @@
       "title": "100% GCP Cloud-Direct & DEV/PROD Isolation",
       "items": [
         "Cloud Run services: yardsquare-api-dev & yardsquare-api-prod managed via GitHub Actions",
-        "Cloud Firestore with strict dev_* / prod_* collection isolation + in-memory local mirror",
+        "Cloud Firestore with strict dev_* / prod_* collection isolation + remembered custom property borders",
         "Cloud Storage bucket for plant growth timeline photos + Secret Manager for zero hardcoded keys"
       ]
     },
@@ -316,7 +316,7 @@
       "dot": "amber",
       "title": "Tier-1 ($0.00 Personal Use) Cost Guardrails",
       "items": [
-        "Stage 1: $0 Photon/OpenStreetMap address autocomplete + OSM Overpass actual building footprints",
+        "Stage 1: <100ms US E-911 + Photon/OSM address autocomplete + OSM Overpass actual building footprints ($0)",
         "Stage 2: Rooftop geocode hard-capped at 300/day & 9,500/month (zero Pay-As-You-Go overages)",
         "On-demand What3Words resolution with TTL cache and automatic HTTP 402 deterministic 3-word fallback"
       ]

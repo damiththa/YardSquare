@@ -124,8 +124,8 @@
         <path data-edge-from="geo_parcel_engine" data-edge-to="external_geo_w3w" data-edge-label="Stage 2 rooftop &amp; 3WA" data-edge-key="7" data-edge-id="geo-to-external" data-composition-points="788,129;910,129" d="M 788 129 L 910 129" class="a-dashed" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="geo_parcel_engine" data-edge-to="photon_overpass_osm" data-edge-label="Stage 1 &amp; OSM buildings ($0)" data-edge-key="8" data-edge-id="geo-to-photon" data-composition-points="788,129;849,129;849,274;910,274" d="M 788 129 L 849 129 L 849 274 L 910 274" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="botanical_catalog_engine" data-edge-to="phzm_usda_climate" data-edge-label="USDA zone compatibility" data-edge-key="9" data-edge-id="geo-to-phzm" data-composition-points="788,419;910,419" d="M 788 419 L 910 419" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <g id="node-yard_companion_ui" data-node-id="yard_companion_ui" data-node-label="Yard Companion Studio" tabindex="0" role="button" aria-label="Focus Yard Companion Studio, 3m W3W Grid, Border &amp; Seasons, Architecture component, browser UI" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="3m W3W Grid, Border &amp; Seasons" data-node-tag="browser UI" data-node-context="Architecture component">
-          <title>Yard Companion Studio · 3m W3W Grid, Border &amp; Seasons · Architecture component · browser UI</title>
+        <g id="node-yard_companion_ui" data-node-id="yard_companion_ui" data-node-label="Yard Companion Studio" tabindex="0" role="button" aria-label="Focus Yard Companion Studio, Web-First 3m Grid &amp; Fence Box, Architecture component, Phase 1 Web UI" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Web-First 3m Grid &amp; Fence Box" data-node-tag="Phase 1 Web UI" data-node-context="Architecture component">
+          <title>Yard Companion Studio · Web-First 3m Grid &amp; Fence Box · Architecture component · Phase 1 Web UI</title>
           <rect x="40" y="95" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="40" y="95" width="168" height="68" rx="6" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 101) scale(0.6875)">
@@ -139,12 +139,12 @@
             <text x="16" y="9.5">1 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="124.0" y="128.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Yard Companion Studio</text>
-        <text data-detail="context" x="124.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">3m W3W Grid, Border &amp; Seasons</text>
-        <text data-detail="fine" x="124.0" y="156" class="t-frontend" font-size="7.0" text-anchor="middle">browser UI</text>
+        <text data-detail="context" x="124.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">Web-First 3m Grid &amp; Fence Box</text>
+        <text data-detail="fine" x="124.0" y="156" class="t-frontend" font-size="7.0" text-anchor="middle">Phase 1 Web UI</text>
         </g>
 
-        <g id="node-mobile_walk_pwa" data-node-id="mobile_walk_pwa" data-node-label="Mobile Yard Walk PWA" tabindex="0" role="button" aria-label="Focus Mobile Yard Walk PWA, GPS square locator &amp; sw.js, Architecture component, offline PWA" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="GPS square locator &amp; sw.js" data-node-tag="offline PWA" data-node-context="Architecture component">
-          <title>Mobile Yard Walk PWA · GPS square locator &amp; sw.js · Architecture component · offline PWA</title>
+        <g id="node-mobile_walk_pwa" data-node-id="mobile_walk_pwa" data-node-label="Mobile Yard Walk PWA" tabindex="0" role="button" aria-label="Focus Mobile Yard Walk PWA, Phase 2: GPS walk &amp; sw.js, Architecture component, Phase 2 mobile" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Phase 2: GPS walk &amp; sw.js" data-node-tag="Phase 2 mobile" data-node-context="Architecture component">
+          <title>Mobile Yard Walk PWA · Phase 2: GPS walk &amp; sw.js · Architecture component · Phase 2 mobile</title>
           <rect x="40" y="240" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="40" y="240" width="168" height="68" rx="6" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 246) scale(0.6875)">
@@ -158,8 +158,8 @@
             <text x="16" y="9.5">2 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="124.0" y="273.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Mobile Yard Walk PWA</text>
-        <text data-detail="context" x="124.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">GPS square locator &amp; sw.js</text>
-        <text data-detail="fine" x="124.0" y="301" class="t-frontend" font-size="7.0" text-anchor="middle">offline PWA</text>
+        <text data-detail="context" x="124.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">Phase 2: GPS walk &amp; sw.js</text>
+        <text data-detail="fine" x="124.0" y="301" class="t-frontend" font-size="7.0" text-anchor="middle">Phase 2 mobile</text>
         </g>
 
         <g id="node-github_cicd" data-node-id="github_cicd" data-node-label="GitHub Actions CI/CD" tabindex="0" role="button" aria-label="Focus GitHub Actions CI/CD, DEV &amp; PROD Cloud Build, Architecture component, Cloud Build" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="DEV &amp; PROD Cloud Build" data-node-tag="Cloud Build" data-node-context="Architecture component">
@@ -214,8 +214,8 @@
         <text data-detail="fine" x="414.0" y="301" class="t-cloud" font-size="7.0" text-anchor="middle">us-central1</text>
         </g>
 
-        <g id="node-geo_parcel_engine" data-node-id="geo_parcel_engine" data-node-label="3m Grid &amp; Land Engine" tabindex="0" role="button" aria-label="Focus 3m Grid &amp; Land Engine, OSM footprints, Hose &amp; Roots, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), spatial math" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OSM footprints, Hose &amp; Roots" data-node-tag="spatial math" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
-          <title>3m Grid &amp; Land Engine · OSM footprints, Hose &amp; Roots · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · spatial math</title>
+        <g id="node-geo_parcel_engine" data-node-id="geo_parcel_engine" data-node-label="3m Grid &amp; Land Engine" tabindex="0" role="button" aria-label="Focus 3m Grid &amp; Land Engine, OSM footprints &amp; Fence Polygon, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), spatial math" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OSM footprints &amp; Fence Polygon" data-node-tag="spatial math" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
+          <title>3m Grid &amp; Land Engine · OSM footprints &amp; Fence Polygon · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · spatial math</title>
           <rect x="620" y="95" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="620" y="95" width="168" height="68" rx="6" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(626 101) scale(0.6875)">
@@ -226,12 +226,12 @@
             <text x="16" y="9.5">2 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="704.0" y="128.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">3m Grid &amp; Land Engine</text>
-        <text data-detail="context" x="704.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">OSM footprints, Hose &amp; Roots</text>
+        <text data-detail="context" x="704.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">OSM footprints &amp; Fence Polygon</text>
         <text data-detail="fine" x="704.0" y="156" class="t-backend" font-size="7.0" text-anchor="middle">spatial math</text>
         </g>
 
-        <g id="node-firestore_gcs_store" data-node-id="firestore_gcs_store" data-node-label="Firestore &amp; GCS Media" tabindex="0" role="button" aria-label="Focus Firestore &amp; GCS Media, dev_*/prod_* yards &amp; photos, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), nam5 store" aria-pressed="false" data-node-kind="database" data-node-sublabel="dev_*/prod_* yards &amp; photos" data-node-tag="nam5 store" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
-          <title>Firestore &amp; GCS Media · dev_*/prod_* yards &amp; photos · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · nam5 store</title>
+        <g id="node-firestore_gcs_store" data-node-id="firestore_gcs_store" data-node-label="Firestore &amp; GCS Media" tabindex="0" role="button" aria-label="Focus Firestore &amp; GCS Media, Remembered fences &amp; yards, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), nam5 store" aria-pressed="false" data-node-kind="database" data-node-sublabel="Remembered fences &amp; yards" data-node-tag="nam5 store" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
+          <title>Firestore &amp; GCS Media · Remembered fences &amp; yards · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · nam5 store</title>
           <rect x="620" y="240" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="620" y="240" width="168" height="68" rx="6" class="c-database" data-animate="node" style="--step:6" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(626 246) scale(0.6875)">
@@ -243,7 +243,7 @@
             <text x="16" y="9.5">2 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="704.0" y="273.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Firestore &amp; GCS Media</text>
-        <text data-detail="context" x="704.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">dev_*/prod_* yards &amp; photos</text>
+        <text data-detail="context" x="704.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">Remembered fences &amp; yards</text>
         <text data-detail="fine" x="704.0" y="301" class="t-database" font-size="7.0" text-anchor="middle">nam5 store</text>
         </g>
 

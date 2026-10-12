@@ -34,6 +34,7 @@ from app.services.geo_grid import (
     analyze_yard_layout,
     build_grid_square_coord,
     extract_actual_land_and_footprints,
+    recalculate_border_polygon_from_zones,
     resolve_usda_hardiness_zone,
 )
 from app.services.plant_catalog import get_species_by_id
@@ -304,6 +305,33 @@ class GCPDataStore:
     def list_yards(self) -> List[YardMap]:
         return [YardMap(**d) for d in self._list_docs("yards")]
 
+    def find_yard_by_address(self, street_address: str) -> Optional[YardMap]:
+        """Find a previously saved YardMap matching the given street address so custom borders are remembered."""
+        target = (street_address or "").strip().lower()
+        if not target:
+            return None
+        for yard in self.list_yards():
+            saved_addr = (yard.street_address or "").strip().lower()
+            if saved_addr == target or (len(target) >= 8 and (target in saved_addr or saved_addr in target)):
+                return yard
+        return None
+
+    def update_yard_borders(
+        self,
+        yard_id: str,
+        zones: ParcelZoneMap,
+        yard_name: Optional[str] = None,
+    ) -> YardMap:
+        """Persist user-adjusted fence/property border cells and recompute GPS border polygon & safety checks."""
+        yard = self.get_yard(yard_id)
+        if not yard:
+            raise ValueError(f"Yard not found: {yard_id}")
+        zones.footprint_source = "user_adjusted_custom_border"
+        yard.zones = zones
+        if yard_name:
+            yard.yard_name = yard_name.strip()
+        return self.save_yard(yard)
+
     def save_yard(self, yard: YardMap) -> YardMap:
         yard.spigot_s1 = build_grid_square_coord(
             yard.parcel_center_lat, yard.parcel_center_lng, yard.spigot_s1.row, yard.spigot_s1.col, resolve_w3w=True
@@ -319,6 +347,15 @@ class GCPDataStore:
         for p in yard.plants:
             p.square = build_grid_square_coord(
                 yard.parcel_center_lat, yard.parcel_center_lng, p.square.row, p.square.col, resolve_w3w=True
+            )
+
+        if yard.zones is not None:
+            yard.zones.border_polygon_lat_lng = recalculate_border_polygon_from_zones(
+                yard.parcel_center_lat,
+                yard.parcel_center_lng,
+                yard.zones,
+                grid_rows=yard.grid_rows,
+                grid_cols=yard.grid_cols,
             )
 
         yard.analysis = analyze_yard_layout(

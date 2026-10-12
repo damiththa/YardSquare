@@ -279,3 +279,9 @@ class CareLogCreateRequest(BaseModel):
     action: CareActionType = CareActionType.WATERED
     note: Optional[str] = None
     health_status: Optional[PlantHealthStatus] = None
+
+
+class BorderUpdateRequest(BaseModel):
+    zones: ParcelZoneMap
+    yard_name: Optional[str] = None
+

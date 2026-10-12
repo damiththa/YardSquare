@@ -110,3 +110,51 @@ def test_catalog_and_plant_lifecycle() -> None:
     del_resp = client.delete(f"/api/v1/yard/yard_default/plants/{added_plant['plant_id']}")
     assert del_resp.status_code == 200
     assert len(del_resp.json()["plants"]) == initial_count
+
+
+def test_custom_fence_border_adjustment_and_memory() -> None:
+    yard_resp = client.get("/api/v1/yard/yard_default")
+    assert yard_resp.status_code == 200
+    yard = yard_resp.json()
+    zones = yard["zones"]
+
+    # Customize the fence perimeter to a specific set of 3m squares
+    custom_fence = ["R3-C6", "R3-C7", "R3-C8", "R14-C6", "R14-C20"]
+    zones["fence_border_cells"] = custom_fence
+
+    border_resp = client.put(
+        "/api/v1/yard/yard_default/borders",
+        json={"zones": zones, "yard_name": "Evergreen Custom Fenced Yard"},
+    )
+    assert border_resp.status_code == 200
+    saved_yard = border_resp.json()
+    assert saved_yard["zones"]["footprint_source"] == "user_adjusted_custom_border"
+    assert saved_yard["zones"]["fence_border_cells"] == custom_fence
+    assert len(saved_yard["zones"]["border_polygon_lat_lng"]) == 4
+
+    # Verify re-geocoding the same address remembers the custom fence unless force_reset_border=True
+    geo_keep = client.post(
+        "/api/v1/yard/geocode",
+        json={
+            "street_address": yard["street_address"],
+            "apply_to_yard_id": "yard_default",
+            "force_reset_border": False,
+        },
+    )
+    assert geo_keep.status_code == 200
+    assert geo_keep.json()["remembered_custom_border"] is True
+    assert geo_keep.json()["zones"]["fence_border_cells"] == custom_fence
+
+    # Verify force_reset_border=True restores default footprint
+    geo_reset = client.post(
+        "/api/v1/yard/geocode",
+        json={
+            "street_address": yard["street_address"],
+            "apply_to_yard_id": "yard_default",
+            "force_reset_border": True,
+        },
+    )
+    assert geo_reset.status_code == 200
+    assert geo_reset.json()["remembered_custom_border"] is False
+    assert geo_reset.json()["zones"]["footprint_source"] != "user_adjusted_custom_border"
+

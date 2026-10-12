@@ -164,9 +164,6 @@
           </select>
         </div>
 
-        <a href="/walk" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-700/70 hover:bg-emerald-600 text-white border border-emerald-500/40 transition flex items-center gap-1">
-          📱 Mobile Yard Walk
-        </a>
         <a href="/architecture" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-emerald-200 border border-stone-600 transition flex items-center gap-1">
           📐 Archify Diagram
         </a>
@@ -180,22 +177,28 @@
     <!-- LEFT COLUMN (8 cols): Address Bar, Mode Toolbar & Interactive 3m x 3m W3W Property Grid -->
     <section class="lg:col-span-8 flex flex-col gap-3">
 
-      <!-- Step 1: Address Search & Actual Land Footprint Extraction Bar -->
+      <!-- Step 1: Address Search, Saved Properties & Remembered Fence/Land Footprint Bar -->
       <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/90 flex flex-col gap-2.5">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center">1</span>
-            <h2 class="text-sm font-bold text-stone-800">Property Address & Actual Land Footprint</h2>
+            <h2 class="text-sm font-bold text-stone-800">Property Address & Remembered Yard Border</h2>
             <span id="footprintSourceBadge" class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
               OSM Building + Adjustable Border
             </span>
+            <span id="cloudMemoryBadge" class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-900 border border-emerald-300 font-semibold">
+              🟢 Remembered in Cloud
+            </span>
           </div>
-          <div class="flex items-center gap-2 text-xs">
-            <button onclick="usePhoneBrowserGPS()" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold transition">
-              📍 Standing in Yard? Use GPS
+          <div class="flex flex-wrap items-center gap-1.5 text-xs">
+            <select id="savedYardsSelect" onchange="switchSavedYard(this.value)" title="Switch between remembered yards in Cloud Firestore" class="px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-300 text-stone-800 font-semibold focus:outline-none">
+              <option value="yard_default">🏡 Evergreen Terrace Sanctuary</option>
+            </select>
+            <button onclick="saveAsNewProperty()" class="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 font-semibold transition" title="Save current address & fence border as a separate remembered property">
+              + New Property
             </button>
             <button onclick="saveYardToCloud()" id="btnSaveYard" class="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm transition">
-              💾 Save Yard
+              💾 Save Fence & Yard
             </button>
           </div>
         </div>
@@ -225,11 +228,11 @@
             <button onclick="setInteractionMode('inspect')" id="modeBtn-inspect" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-emerald-800 text-white border-emerald-900 shadow-sm">
               🔍 Inspect & Care (3×3 Square)
             </button>
+            <button onclick="setInteractionMode('border')" id="modeBtn-border" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-amber-50">
+              🪵 Adjust Fence & Yard Border
+            </button>
             <button onclick="setInteractionMode('plant')" id="modeBtn-plant" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-emerald-50">
               🌱 Plant Trees / Shrubs / Beds
-            </button>
-            <button onclick="setInteractionMode('border')" id="modeBtn-border" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-amber-50">
-              ✏️ Adjust Land & Border
             </button>
             <button onclick="setInteractionMode('water')" id="modeBtn-water" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-sky-50">
               🚰 Water Spigots & Hose
@@ -281,19 +284,69 @@
           </span>
         </div>
 
-        <!-- Dynamic Sub-Toolbar: Land & Border Adjustment Brush (Shown in 'border' mode) -->
-        <div id="subToolbar-border" class="hidden bg-amber-50/80 rounded-xl p-2.5 border border-amber-200 flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-xs font-bold text-amber-950 mr-1">Border & Land Brush:</span>
-            <button onclick="setBorderBrush('yard')" id="brushBtn-yard" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-700 text-white">🌿 Lawn / Yard</button>
-            <button onclick="setBorderBrush('fence_border')" id="brushBtn-fence_border" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">🪵 Property Border / Fence</button>
-            <button onclick="setBorderBrush('house_roof')" id="brushBtn-house_roof" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">🏠 House Roof</button>
-            <button onclick="setBorderBrush('garage_shed')" id="brushBtn-garage_shed" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">🛖 Garage / Shed</button>
-            <button onclick="setBorderBrush('driveway_patio')" id="brushBtn-driveway_patio" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">🧱 Patio / Driveway</button>
-            <button onclick="setBorderBrush('septic_utility')" id="brushBtn-septic_utility" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">⚠️ Septic / Utility</button>
-            <button onclick="setBorderBrush('out_of_bounds')" id="brushBtn-out_of_bounds" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">🚫 Outside Lot</button>
+        <!-- Dynamic Sub-Toolbar: Fence & Property Border Designer (Shown in 'border' mode) -->
+        <div id="subToolbar-border" class="hidden bg-amber-50/90 rounded-xl p-3 border border-amber-300 flex flex-col gap-2.5">
+          <!-- Row 1: Fence Drawing Tools & Land Zone Brushes -->
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-xs font-bold text-amber-950 mr-1">1. Choose Fence / Land Tool:</span>
+              <button onclick="setBorderBrush('fence_box')" id="brushBtn-fence_box" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-800 text-white shadow-sm" title="Click and drag from one corner square to another to draw a complete rectangular property fence">
+                📐 Draw Fence Box (Drag Rectangle)
+              </button>
+              <button onclick="setBorderBrush('fence_border')" id="brushBtn-fence_border" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag individual 3m squares to draw custom fence lines">
+                🪵 Paint Fence Line
+              </button>
+              <button onclick="setBorderBrush('yard')" id="brushBtn-yard" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Erase fence or convert squares into open plantable lawn">
+                🌿 Lawn / Erase Fence
+              </button>
+              <button onclick="setBorderBrush('house_roof')" id="brushBtn-house_roof" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
+                🏠 House Roof
+              </button>
+              <button onclick="setBorderBrush('garage_shed')" id="brushBtn-garage_shed" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
+                🛖 Garage / Shed
+              </button>
+              <button onclick="setBorderBrush('driveway_patio')" id="brushBtn-driveway_patio" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
+                🧱 Patio / Driveway
+              </button>
+              <button onclick="setBorderBrush('septic_utility')" id="brushBtn-septic_utility" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
+                ⚠️ Septic / Utility
+              </button>
+              <button onclick="setBorderBrush('out_of_bounds')" id="brushBtn-out_of_bounds" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
+                🚫 Outside Lot
+              </button>
+            </div>
+            <span id="fenceLotDimensionsBadge" class="text-[11px] font-mono-code font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-950 border border-amber-300">
+              🪵 Fenced Lot: 197 ft × 157 ft (60m × 48m)
+            </span>
           </div>
-          <span class="text-[11px] text-amber-900">Click or drag across 3m squares to adjust your exact property border & buildings.</span>
+
+          <!-- Row 2: 1-Click Fence Perimeter Nudge & Reset Controls -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-200/80 text-xs">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-bold text-amber-950">2. Quick Resize Fence Perimeter:</span>
+              <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
+                <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">West</span>
+                <button onclick="nudgeFencePerimeter('west', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Expand West fence outward">◀ Out</button>
+                <button onclick="nudgeFencePerimeter('west', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Move West fence inward">In ▶</button>
+              </div>
+              <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
+                <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">East</span>
+                <button onclick="nudgeFencePerimeter('east', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Move East fence inward">◀ In</button>
+                <button onclick="nudgeFencePerimeter('east', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Expand East fence outward">Out ▶</button>
+              </div>
+              <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
+                <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">North</span>
+                <button onclick="nudgeFencePerimeter('north', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Expand North (back) fence outward">▲ Out</button>
+                <button onclick="nudgeFencePerimeter('north', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Move North (back) fence inward">In ▼</button>
+              </div>
+              <button onclick="resetFenceToDefaultFootprint()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold transition">
+                🔄 Reset to Default Footprint
+              </button>
+            </div>
+            <span class="text-[11px] text-amber-900 font-medium">
+              ✨ Every fence & border adjustment auto-saves to Cloud Firestore so your yard is always remembered.
+            </span>
+          </div>
         </div>
 
         <!-- Dynamic Sub-Toolbar: Water Spigots & Hose Routing (Shown in 'water' mode) -->
@@ -433,37 +486,140 @@
 
   <script>
     const SUB_SLOTS = ["NW", "N", "NE", "W", "C", "E", "SW", "S", "SE"];
+    const STORAGE_KEY_ACTIVE_YARD = "yardsquare_active_yard_id";
+
     let state = {
-      yardId: "yard_default",
+      yardId: localStorage.getItem(STORAGE_KEY_ACTIVE_YARD) || "yard_default",
       yard: null,
+      savedYards: [],
       catalog: [],
       season: "summer",
       canopyScale: 1.0,
-      interactionMode: "inspect", // 'inspect' | 'plant' | 'border' | 'water'
-      borderBrush: "yard",
+      interactionMode: "inspect", // 'inspect' | 'border' | 'plant' | 'water'
+      borderBrush: "fence_box",   // 'fence_box' | 'fence_border' | 'yard' | 'house_roof' | ...
       waterTool: "s1",
       selectedSpeciesId: "malus_honeycrisp",
       selectedSubSlot: "C",
       selectedCell: { row: 3, col: 6 },
       isMouseDown: false,
+      hasUnsavedBorderChanges: false,
+      fenceBoxDragStart: null,
+      fenceBoxDragCurrent: null,
     };
 
     async function initApp() {
-      const [catResp, yardResp] = await Promise.all([
+      const [catResp, listResp] = await Promise.all([
         fetch("/api/v1/catalog/species"),
-        fetch(`/api/v1/yard/${state.yardId}`),
+        fetch("/api/v1/yard/list"),
       ]);
       state.catalog = await catResp.json();
-      state.yard = await yardResp.json();
+      state.savedYards = listResp.ok ? await listResp.json() : [];
+
+      if (!state.savedYards.some(y => y.yard_id === state.yardId)) {
+        state.yardId = state.savedYards[0]?.yard_id || "yard_default";
+      }
+      localStorage.setItem(STORAGE_KEY_ACTIVE_YARD, state.yardId);
+
+      const yardResp = await fetch(`/api/v1/yard/${state.yardId}`);
+      if (yardResp.ok) {
+        state.yard = await yardResp.json();
+      }
 
       populateSpeciesPicker();
+      populateSavedYardsDropdown();
       syncHeaderAndControls();
       renderGrid();
       renderSelectedSquareInspector();
       renderAnalysisSidebar();
       setupAutocomplete();
 
-      window.addEventListener("mouseup", () => { state.isMouseDown = false; });
+      window.addEventListener("mouseup", async () => {
+        if (!state.isMouseDown) return;
+        state.isMouseDown = false;
+
+        if (state.interactionMode === "border" && state.borderBrush === "fence_box" && state.fenceBoxDragStart && state.fenceBoxDragCurrent) {
+          const r1 = state.fenceBoxDragStart.row;
+          const c1 = state.fenceBoxDragStart.col;
+          const r2 = state.fenceBoxDragCurrent.row;
+          const c2 = state.fenceBoxDragCurrent.col;
+          state.fenceBoxDragStart = null;
+          state.fenceBoxDragCurrent = null;
+          applyRectangularFencePerimeter(
+            Math.min(r1, r2),
+            Math.max(r1, r2),
+            Math.min(c1, c2),
+            Math.max(c1, c2)
+          );
+          await saveBordersToCloud();
+          return;
+        }
+
+        if (state.hasUnsavedBorderChanges) {
+          await saveBordersToCloud();
+        }
+      });
+    }
+
+    async function refreshSavedYardsList() {
+      const resp = await fetch("/api/v1/yard/list");
+      if (resp.ok) {
+        state.savedYards = await resp.json();
+        populateSavedYardsDropdown();
+      }
+    }
+
+    function populateSavedYardsDropdown() {
+      const sel = document.getElementById("savedYardsSelect");
+      if (!sel) return;
+      const yards = state.savedYards.length > 0 ? state.savedYards : (state.yard ? [state.yard] : []);
+      sel.innerHTML = yards.map(y => {
+        const customTag = y.zones?.footprint_source === "user_adjusted_custom_border" ? " · 🪵 Custom Fence" : "";
+        return `<option value="${y.yard_id}" ${y.yard_id === state.yardId ? "selected" : ""}>🏡 ${y.yard_name || y.street_address} (${y.street_address.split(",")[0]}${customTag})</option>`;
+      }).join("");
+    }
+
+    async function switchSavedYard(yardId) {
+      if (!yardId || yardId === state.yardId) return;
+      if (state.hasUnsavedBorderChanges) {
+        await saveBordersToCloud(true);
+      }
+      state.yardId = yardId;
+      localStorage.setItem(STORAGE_KEY_ACTIVE_YARD, yardId);
+      const resp = await fetch(`/api/v1/yard/${yardId}`);
+      if (resp.ok) {
+        state.yard = await resp.json();
+        syncHeaderAndControls();
+        renderGrid();
+        await renderSelectedSquareInspector();
+        renderAnalysisSidebar();
+        showToast(`🏡 Loaded remembered property: ${state.yard.street_address}`);
+      }
+    }
+
+    async function saveAsNewProperty() {
+      if (!state.yard) return;
+      const addr = document.getElementById("addressInput").value.trim() || state.yard.street_address;
+      const shortStreet = addr.split(",")[0].trim() || "My Yard";
+      const newId = "yard_" + Math.random().toString(36).slice(2, 8);
+      const copyYard = JSON.parse(JSON.stringify(state.yard));
+      copyYard.yard_id = newId;
+      copyYard.yard_name = `${shortStreet} Yard`;
+      copyYard.street_address = addr;
+
+      const resp = await fetch(`/api/v1/yard/${newId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(copyYard),
+      });
+      if (resp.ok) {
+        state.yardId = newId;
+        localStorage.setItem(STORAGE_KEY_ACTIVE_YARD, newId);
+        state.yard = await resp.json();
+        await refreshSavedYardsList();
+        syncHeaderAndControls();
+        renderGrid();
+        showToast(`🏡 Saved "${copyYard.yard_name}" as a remembered property in Cloud Firestore!`);
+      }
     }
 
     function populateSpeciesPicker() {
@@ -485,16 +641,56 @@
       }
     }
 
+    function updateFenceDimensionsBadge() {
+      const badge = document.getElementById("fenceLotDimensionsBadge");
+      if (!badge || !state.yard) return;
+      const bounds = getCurrentFenceBounds();
+      const sqFt = state.yard.square_size_feet || 9.8425;
+      const sqM = state.yard.square_size_meters || 3.0;
+      const widthSquares = bounds.maxC - bounds.minC + 1;
+      const depthSquares = bounds.maxR - bounds.minR + 1;
+      const widthFt = Math.round(widthSquares * sqFt);
+      const depthFt = Math.round(depthSquares * sqFt);
+      const widthM = Math.round(widthSquares * sqM);
+      const depthM = Math.round(depthSquares * sqM);
+      const fenceCount = (state.yard.zones?.fence_border_cells || []).length;
+      badge.textContent = `🪵 Fenced Lot: ${widthFt} ft × ${depthFt} ft (${widthM}m × ${depthM}m · ${fenceCount} Fence Squares)`;
+    }
+
+    function updateCloudMemoryStatus(statusType, customMessage) {
+      const badge = document.getElementById("cloudMemoryBadge");
+      if (!badge) return;
+      if (statusType === "saving") {
+        badge.className = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-semibold";
+        badge.textContent = customMessage || "🟡 Saving border changes...";
+      } else {
+        const isCustom = state.yard?.zones?.footprint_source === "user_adjusted_custom_border";
+        badge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-100/90 text-emerald-900 border border-emerald-300 font-semibold";
+        badge.textContent = customMessage || (isCustom ? "🟢 Custom Fence & Yard Remembered" : "🟢 Remembered in Cloud");
+      }
+    }
+
     function syncHeaderAndControls() {
       if (!state.yard) return;
       document.getElementById("addressInput").value = state.yard.street_address;
       document.getElementById("usdaBadge").textContent =
         `🌡️ USDA Zone ${state.yard.usda_zone} (${state.yard.usda_min_temp_f})`;
-      document.getElementById("footprintSourceBadge").textContent =
-        state.yard.zones?.footprint_source === "osm_overpass_live_building_polygon"
-          ? "🛰️ Live OSM Building Footprint + Adjustable Border"
-          : "📐 Auto-Fit Parcel Footprint + Adjustable Border";
+
+      const src = state.yard.zones?.footprint_source;
+      if (src === "user_adjusted_custom_border") {
+        document.getElementById("footprintSourceBadge").textContent = "🪵 Custom Adjusted Fence & Property Border";
+        document.getElementById("footprintSourceBadge").className = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 font-semibold";
+      } else if (src === "osm_overpass_live_building_polygon") {
+        document.getElementById("footprintSourceBadge").textContent = "🛰️ Live OSM Building Footprint + Adjustable Border";
+        document.getElementById("footprintSourceBadge").className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+      } else {
+        document.getElementById("footprintSourceBadge").textContent = "📐 Auto-Fit Parcel Footprint + Adjustable Border";
+        document.getElementById("footprintSourceBadge").className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+      }
+
       document.getElementById("hoseLengthSelect").value = String(state.yard.hose_length_ft || 100);
+      updateFenceDimensionsBadge();
+      updateCloudMemoryStatus("saved");
     }
 
     function setSeason(season) {
@@ -517,7 +713,7 @@
 
     function setInteractionMode(mode) {
       state.interactionMode = mode;
-      const modes = ["inspect", "plant", "border", "water"];
+      const modes = ["inspect", "border", "plant", "water"];
       modes.forEach(m => {
         const btn = document.getElementById(`modeBtn-${m}`);
         if (m === mode) {
@@ -530,11 +726,14 @@
           sub.classList.toggle("hidden", m !== mode);
         }
       });
+      if (mode === "border") {
+        updateFenceDimensionsBadge();
+      }
     }
 
     function setBorderBrush(brush) {
       state.borderBrush = brush;
-      const brushes = ["yard", "fence_border", "house_roof", "garage_shed", "driveway_patio", "septic_utility", "out_of_bounds"];
+      const brushes = ["fence_box", "fence_border", "yard", "house_roof", "garage_shed", "driveway_patio", "septic_utility", "out_of_bounds"];
       brushes.forEach(b => {
         const btn = document.getElementById(`brushBtn-${b}`);
         if (!btn) return;
@@ -560,6 +759,93 @@
 
     function cellLabel(r, c) {
       return `R${r + 1}-C${c + 1}`;
+    }
+
+    function parseCellCoords(lbl) {
+      const m = String(lbl || "").match(/^R(\d+)-C(\d+)$/);
+      return m ? { r: parseInt(m[1], 10) - 1, c: parseInt(m[2], 10) - 1 } : null;
+    }
+
+    function getCurrentFenceBounds() {
+      const rows = state.yard?.grid_rows || 18;
+      const cols = state.yard?.grid_cols || 26;
+      const fenceCells = (state.yard?.zones?.fence_border_cells || []).map(parseCellCoords).filter(Boolean);
+      if (fenceCells.length > 0) {
+        return {
+          minR: Math.min(...fenceCells.map(x => x.r)),
+          maxR: Math.max(...fenceCells.map(x => x.r)),
+          minC: Math.min(...fenceCells.map(x => x.c)),
+          maxC: Math.max(...fenceCells.map(x => x.c)),
+        };
+      }
+      return { minR: 1, maxR: rows - 2, minC: 3, maxC: cols - 4 };
+    }
+
+    function applyRectangularFencePerimeter(minR, maxR, minC, maxC) {
+      if (!state.yard || !state.yard.zones) return;
+      const rows = state.yard.grid_rows || 18;
+      const cols = state.yard.grid_cols || 26;
+      const z = state.yard.zones;
+
+      const clampedMinR = Math.max(0, Math.min(rows - 3, minR));
+      const clampedMaxR = Math.max(clampedMinR + 2, Math.min(rows - 2, maxR));
+      const clampedMinC = Math.max(0, Math.min(cols - 3, minC));
+      const clampedMaxC = Math.max(clampedMinC + 2, Math.min(cols - 1, maxC));
+
+      const houseSet = new Set(z.house_roof_cells || []);
+      const garageSet = new Set(z.garage_shed_cells || []);
+      const drivewaySet = new Set(z.driveway_patio_cells || []);
+      const septicSet = new Set(z.septic_utility_cells || []);
+      const roadSet = new Set(z.road_apron_cells || []);
+
+      const newFence = [];
+      const newOob = [];
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const lbl = cellLabel(r, c);
+          if (roadSet.has(lbl)) continue;
+
+          const isOutside = r < clampedMinR || r > clampedMaxR || c < clampedMinC || c > clampedMaxC;
+          const isPerimeter =
+            !isOutside &&
+            (r === clampedMinR || c === clampedMinC || c === clampedMaxC || (r === clampedMaxR && clampedMaxR < rows - 2));
+
+          if (isOutside) {
+            if (!houseSet.has(lbl) && !garageSet.has(lbl) && !drivewaySet.has(lbl)) {
+              newOob.push(lbl);
+            }
+          } else if (isPerimeter) {
+            if (!houseSet.has(lbl) && !garageSet.has(lbl) && !drivewaySet.has(lbl) && !septicSet.has(lbl)) {
+              newFence.push(lbl);
+            }
+          }
+        }
+      }
+
+      z.fence_border_cells = newFence;
+      z.out_of_bounds_cells = newOob;
+      z.footprint_source = "user_adjusted_custom_border";
+      state.hasUnsavedBorderChanges = true;
+      updateFenceDimensionsBadge();
+      renderGrid();
+    }
+
+    async function nudgeFencePerimeter(side, delta) {
+      const bounds = getCurrentFenceBounds();
+      if (side === "west") bounds.minC += delta;
+      else if (side === "east") bounds.maxC += delta;
+      else if (side === "north") bounds.minR += delta;
+      else if (side === "south") bounds.maxR += delta;
+
+      applyRectangularFencePerimeter(bounds.minR, bounds.maxR, bounds.minC, bounds.maxC);
+      await saveBordersToCloud();
+    }
+
+    async function resetFenceToDefaultFootprint() {
+      const addr = document.getElementById("addressInput").value.trim() || state.yard?.street_address;
+      if (!addr) return;
+      await runGeocode(addr, state.yard?.parcel_center_lat, state.yard?.parcel_center_lng, true);
     }
 
     function getCellZoneType(r, c) {
@@ -593,6 +879,10 @@
       if (newZone !== "yard" && z[`${newZone}_cells`]) {
         z[`${newZone}_cells`].push(lbl);
       }
+      z.footprint_source = "user_adjusted_custom_border";
+      state.hasUnsavedBorderChanges = true;
+      updateCloudMemoryStatus("saving");
+      updateFenceDimensionsBadge();
     }
 
     function getCellSunExposure(r, c) {
@@ -625,7 +915,6 @@
         for (let c = 0; c < cols; c++) {
           const div = document.createElement("div");
           const zone = getCellZoneType(r, c);
-          const lbl = cellLabel(r, c);
           let cls = "grid-cell";
 
           if (zone === "house_roof") cls += " cell-house";
@@ -705,29 +994,94 @@
       const showCanopy = document.getElementById("chkCanopy").checked;
       const showHose = document.getElementById("chkHose").checked;
       const sqFeet = state.yard.square_size_feet || 9.8425;
+      const sqMeters = state.yard.square_size_meters || 3.0;
 
-      // 1. Draw Editable Property Border Polygon outline
+      // 1. Draw Connected Cedar Fence Rails & Posts across all fence_border_cells
       const z = state.yard.zones || {};
-      const fenceCells = (z.fence_border_cells || []).map(lbl => {
-        const m = lbl.match(/^R(\d+)-C(\d+)$/);
-        return m ? { r: parseInt(m[1]) - 1, c: parseInt(m[2]) - 1 } : null;
-      }).filter(Boolean);
+      const fenceCoords = (z.fence_border_cells || []).map(parseCellCoords).filter(Boolean);
+      const fenceSet = new Set(fenceCoords.map(pt => `${pt.r}:${pt.c}`));
 
-      if (fenceCells.length > 0) {
-        const minR = Math.min(...fenceCells.map(x => x.r));
-        const maxR = Math.max(...fenceCells.map(x => x.r));
-        const minC = Math.min(...fenceCells.map(x => x.c));
-        const maxC = Math.max(...fenceCells.map(x => x.c));
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", minC * 10 + 2);
-        rect.setAttribute("y", minR * 10 + 2);
-        rect.setAttribute("width", (maxC - minC + 1) * 10 - 4);
-        rect.setAttribute("height", (maxR - minR + 1) * 10 - 4);
-        rect.setAttribute("fill", "none");
-        rect.setAttribute("stroke", "#b45309");
-        rect.setAttribute("stroke-width", "1.2");
-        rect.setAttribute("stroke-dasharray", "4,2");
-        svg.appendChild(rect);
+      fenceCoords.forEach(pt => {
+        const cx = pt.c * 10 + 5;
+        const cy = pt.r * 10 + 5;
+        const neighbors = [
+          { r: pt.r, c: pt.c + 1 },
+          { r: pt.r + 1, c: pt.c },
+        ];
+        neighbors.forEach(nb => {
+          if (fenceSet.has(`${nb.r}:${nb.c}`)) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", cx);
+            line.setAttribute("y1", cy);
+            line.setAttribute("x2", nb.c * 10 + 5);
+            line.setAttribute("y2", nb.r * 10 + 5);
+            line.setAttribute("stroke", "#92400e");
+            line.setAttribute("stroke-width", "1.6");
+            svg.appendChild(line);
+          }
+        });
+
+        const post = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        post.setAttribute("cx", cx);
+        post.setAttribute("cy", cy);
+        post.setAttribute("r", "1.45");
+        post.setAttribute("fill", "#fef3c7");
+        post.setAttribute("stroke", "#78350f");
+        post.setAttribute("stroke-width", "0.8");
+        svg.appendChild(post);
+      });
+
+      if (fenceCoords.length > 0) {
+        const minR = Math.min(...fenceCoords.map(x => x.r));
+        const maxR = Math.max(...fenceCoords.map(x => x.r));
+        const minC = Math.min(...fenceCoords.map(x => x.c));
+        const maxC = Math.max(...fenceCoords.map(x => x.c));
+        const widthFt = Math.round((maxC - minC + 1) * sqFeet);
+        const depthFt = Math.round((maxR - minR + 1) * sqFeet);
+        const widthM = Math.round((maxC - minC + 1) * sqMeters);
+        const depthM = Math.round((maxR - minR + 1) * sqMeters);
+
+        const labelBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const midX = ((minC + maxC + 1) * 10) / 2;
+        const topY = Math.max(1.5, minR * 10 + 0.8);
+        labelBg.setAttribute("x", midX - 38);
+        labelBg.setAttribute("y", topY);
+        labelBg.setAttribute("width", "76");
+        labelBg.setAttribute("height", "7.5");
+        labelBg.setAttribute("rx", "2");
+        labelBg.setAttribute("fill", "#78350f");
+        labelBg.setAttribute("fill-opacity", "0.9");
+        svg.appendChild(labelBg);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", midX);
+        text.setAttribute("y", topY + 5.2);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("fill", "#fef3c7");
+        text.setAttribute("font-size", "3.8");
+        text.setAttribute("font-family", "JetBrains Mono, monospace");
+        text.setAttribute("font-weight", "bold");
+        text.textContent = `FENCE: ${widthFt}ft × ${depthFt}ft (${widthM}m×${depthM}m)`;
+        svg.appendChild(text);
+      }
+
+      // 1b. Live Preview Box while dragging 'Draw Fence Box'
+      if (state.fenceBoxDragStart && state.fenceBoxDragCurrent) {
+        const minR = Math.min(state.fenceBoxDragStart.row, state.fenceBoxDragCurrent.row);
+        const maxR = Math.max(state.fenceBoxDragStart.row, state.fenceBoxDragCurrent.row);
+        const minC = Math.min(state.fenceBoxDragStart.col, state.fenceBoxDragCurrent.col);
+        const maxC = Math.max(state.fenceBoxDragStart.col, state.fenceBoxDragCurrent.col);
+
+        const previewRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        previewRect.setAttribute("x", minC * 10 + 2);
+        previewRect.setAttribute("y", minR * 10 + 2);
+        previewRect.setAttribute("width", (maxC - minC + 1) * 10 - 4);
+        previewRect.setAttribute("height", (maxR - minR + 1) * 10 - 4);
+        previewRect.setAttribute("fill", "rgba(245, 158, 11, 0.14)");
+        previewRect.setAttribute("stroke", "#d97706");
+        previewRect.setAttribute("stroke-width", "1.8");
+        previewRect.setAttribute("stroke-dasharray", "3,2");
+        svg.appendChild(previewRect);
       }
 
       // 2. Draw Tree & Shrub Canopy Circles (Scaled by Canopy Growth Slider & Seasonal Color)
@@ -779,11 +1133,19 @@
       state.selectedCell = { row: r, col: c };
 
       if (state.interactionMode === "border") {
+        if (state.borderBrush === "fence_box") {
+          if (!isDrag) {
+            state.fenceBoxDragStart = { row: r, col: c };
+          }
+          state.fenceBoxDragCurrent = { row: r, col: c };
+          renderSvgOverlay();
+          return;
+        }
+
         setCellZoneType(r, c, state.borderBrush);
         renderGrid();
         if (!isDrag) {
-          await refreshYardAnalysis();
-          renderSelectedSquareInspector();
+          await renderSelectedSquareInspector();
         }
         return;
       }
@@ -814,7 +1176,37 @@
       await renderSelectedSquareInspector();
     }
 
+    async function saveBordersToCloud(silent = false) {
+      if (!state.yard || !state.yard.zones) return;
+      updateCloudMemoryStatus("saving");
+      const resp = await fetch(`/api/v1/yard/${state.yardId}/borders`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zones: state.yard.zones,
+          yard_name: state.yard.yard_name,
+        }),
+      });
+      if (resp.ok) {
+        state.yard = await resp.json();
+        state.hasUnsavedBorderChanges = false;
+        syncHeaderAndControls();
+        renderGrid();
+        await renderSelectedSquareInspector();
+        renderAnalysisSidebar();
+        await refreshSavedYardsList();
+        const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        updateCloudMemoryStatus("saved", `🟢 Fence & Yard Remembered (${nowStr})`);
+        if (!silent) {
+          showToast("🪵 Saved & remembered your adjusted fence & property border in Cloud Firestore!");
+        }
+      }
+    }
+
     async function plantSpeciesInSquare(r, c, speciesId, subSlot) {
+      if (state.hasUnsavedBorderChanges) {
+        await saveBordersToCloud(true);
+      }
       const resp = await fetch(`/api/v1/yard/${state.yardId}/plants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -952,6 +1344,9 @@
     }
 
     async function logCare(plantId, action) {
+      if (state.hasUnsavedBorderChanges) {
+        await saveBordersToCloud(true);
+      }
       const resp = await fetch(`/api/v1/yard/${state.yardId}/plants/${plantId}/care`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -967,6 +1362,9 @@
     }
 
     async function removePlant(plantId) {
+      if (state.hasUnsavedBorderChanges) {
+        await saveBordersToCloud(true);
+      }
       const resp = await fetch(`/api/v1/yard/${state.yardId}/plants/${plantId}`, {
         method: "DELETE",
       });
@@ -1050,6 +1448,7 @@
     }
 
     async function saveYardToCloud(silent = false) {
+      updateCloudMemoryStatus("saving");
       const resp = await fetch(`/api/v1/yard/${state.yardId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1057,17 +1456,22 @@
       });
       if (resp.ok) {
         state.yard = await resp.json();
+        state.hasUnsavedBorderChanges = false;
+        syncHeaderAndControls();
         renderGrid();
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
-        if (!silent) showToast("💾 Saved Yard Map & W3W Grid to GCP!");
+        await refreshSavedYardsList();
+        const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        updateCloudMemoryStatus("saved", `🟢 Fence & Yard Remembered (${nowStr})`);
+        if (!silent) showToast("💾 Saved & remembered your Fence, Yard Map & W3W Grid in Cloud Firestore!");
       }
     }
 
     function showToast(msg) {
       const el = document.getElementById("saveStatusToast");
       el.textContent = msg;
-      setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 3500);
+      setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 4000);
     }
 
     // Address Autocomplete & Geocode
@@ -1103,24 +1507,27 @@
             </button>
           `).join("");
           dropdown.classList.remove("hidden");
-        }, 240);
+        }, 220);
       });
     }
 
     async function selectAddressSuggestion(address, lat, lng) {
       document.getElementById("addressInput").value = address;
       document.getElementById("autocompleteDropdown").classList.add("hidden");
-      await runGeocode(address, lat, lng);
+      await runGeocode(address, lat, lng, false);
     }
 
     async function lookupTypedAddress() {
       const addr = document.getElementById("addressInput").value.trim();
       if (!addr) return;
-      await runGeocode(addr, null, null);
+      await runGeocode(addr, null, null, false);
     }
 
-    async function runGeocode(address, fallbackLat, fallbackLng) {
-      showToast("🛰️ Fetching parcel footprint, OSM buildings & USDA zone...");
+    async function runGeocode(address, fallbackLat, fallbackLng, forceResetBorder = false) {
+      showToast(forceResetBorder
+        ? "🔄 Resetting fence & land footprint to default OSM / parcel bounds..."
+        : "🛰️ Fetching parcel footprint, OSM buildings & checking remembered fence borders..."
+      );
       const resp = await fetch("/api/v1/yard/geocode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1129,43 +1536,25 @@
           fallback_lat: fallbackLat,
           fallback_lng: fallbackLng,
           apply_to_yard_id: state.yardId,
+          force_reset_border: forceResetBorder,
         }),
       });
       if (resp.ok) {
+        const geoData = await resp.json();
         const yardResp = await fetch(`/api/v1/yard/${state.yardId}`);
         state.yard = await yardResp.json();
+        state.hasUnsavedBorderChanges = false;
+        await refreshSavedYardsList();
         syncHeaderAndControls();
         renderGrid();
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
-        showToast("✓ Loaded land & building footprint! Use '✏️ Adjust Land & Border' to fine-tune.");
-      }
-    }
-
-    function usePhoneBrowserGPS() {
-      if (!navigator.geolocation) {
-        showToast("Browser GPS not available.");
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(async pos => {
-        const resp = await fetch("/api/v1/yard/gps-to-square", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            parcel_center_lat: state.yard.parcel_center_lat,
-            parcel_center_lng: state.yard.parcel_center_lng,
-            user_lat: pos.coords.latitude,
-            user_lng: pos.coords.longitude,
-          }),
-        });
-        if (resp.ok) {
-          const sq = await resp.json();
-          state.selectedCell = { row: sq.row, col: sq.col };
-          renderGrid();
-          await renderSelectedSquareInspector();
-          showToast(`📍 GPS matched square ${sq.label} (${sq.w3w})`);
+        if (geoData.remembered_custom_border) {
+          showToast("🪵 Loaded your remembered custom fence & property border from Cloud Firestore!");
+        } else {
+          showToast("✓ Loaded land & building footprint! Click '🪵 Adjust Fence & Yard Border' to customize.");
         }
-      });
+      }
     }
 
     initApp();
