@@ -49,8 +49,20 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       - name: Build & Deploy YardSquare DEV via Cloud Build
+        env:
+          RAW_PROJECT_ID: ${{ steps.auth.outputs.project_id || secrets.GCP_PROJECT_ID }}
         run: |
-          gcloud builds submit --config deploy/cloudbuild.dev.yaml --project "${{ env.PROJECT_ID }}"
+          set -o pipefail
+          TARGET_PROJECT="${RAW_PROJECT_ID}"
+          if [[ "${TARGET_PROJECT}" =~ ^[0-9]+$ ]]; then
+            TARGET_PROJECT="$(gcloud projects describe "${TARGET_PROJECT}" --format='value(projectId)')"
+          fi
+          echo "::notice title=GCP Target Project::Deploying YardSquare DEV to project '${TARGET_PROJECT}'"
+          if ! gcloud builds submit --config deploy/cloudbuild.dev.yaml --project "${TARGET_PROJECT}" 2>&1 | tee /tmp/cb.log; then
+            ERR_MSG="$(tail -n 12 /tmp/cb.log | tr '\n' ' ')"
+            echo "::error title=Cloud Build DEV Failed::${ERR_MSG}"
+            exit 1
+          fi
 
   deploy-prod:
     name: Deploy to GCP Cloud Run (PROD - yardsquare-api-prod)
@@ -66,5 +78,17 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       - name: Build & Deploy YardSquare PROD via Cloud Build
+        env:
+          RAW_PROJECT_ID: ${{ steps.auth.outputs.project_id || secrets.GCP_PROJECT_ID }}
         run: |
-          gcloud builds submit --config deploy/cloudbuild.prod.yaml --project "${{ env.PROJECT_ID }}"
+          set -o pipefail
+          TARGET_PROJECT="${RAW_PROJECT_ID}"
+          if [[ "${TARGET_PROJECT}" =~ ^[0-9]+$ ]]; then
+            TARGET_PROJECT="$(gcloud projects describe "${TARGET_PROJECT}" --format='value(projectId)')"
+          fi
+          echo "::notice title=GCP Target Project::Deploying YardSquare PROD to project '${TARGET_PROJECT}'"
+          if ! gcloud builds submit --config deploy/cloudbuild.prod.yaml --project "${TARGET_PROJECT}" 2>&1 | tee /tmp/cb.log; then
+            ERR_MSG="$(tail -n 12 /tmp/cb.log | tr '\n' ' ')"
+            echo "::error title=Cloud Build PROD Failed::${ERR_MSG}"
+            exit 1
+          fi

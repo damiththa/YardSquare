@@ -73,7 +73,7 @@
       "pos": [40, 385],
       "size": [168, 68],
       "sources": [
-        { "path": ".github/workflows/deploy-gcp.yml", "line": 1, "end_line": 70, "label": "DEV & PROD Cloud Run workflow" },
+        { "path": ".github/workflows/deploy-gcp.yml", "line": 1, "end_line": 94, "label": "DEV & PROD Cloud Run workflow" },
         { "path": "deploy/cloudbuild.dev.yaml", "line": 1, "end_line": 39, "label": "Cloud Build DEV spec" },
         { "path": "deploy/cloudbuild.prod.yaml", "line": 1, "end_line": 39, "label": "Cloud Build PROD spec" }
       ]
