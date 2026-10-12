@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YardSquare Mobile Walk — Field GPS & 1-Tap Plant Care</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-stone-900 text-stone-100 min-h-screen flex flex-col">
+  <header class="bg-emerald-950 border-b border-emerald-800/60 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <span class="text-xl">🌱</span>
+      <div>
+        <h1 class="font-bold text-sm text-emerald-100">YardSquare · Backyard Walk Mode</h1>
+        <p class="text-[11px] text-emerald-300/80">Walk your yard with GPS, locate 3m W3W squares & log care offline</p>
+      </div>
+    </div>
+    <a href="/" class="px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-xs font-semibold text-white">
+      ← Full Yard Studio
+    </a>
+  </header>
+
+  <main class="max-w-xl w-full mx-auto p-4 flex flex-col gap-3 flex-1">
+    <div class="rounded-2xl bg-stone-800/90 border border-stone-700 p-4 flex items-center justify-between">
+      <div>
+        <div id="walkYardAddress" class="text-xs text-emerald-300 font-semibold">Loading yard...</div>
+        <div id="walkSummary" class="text-sm font-bold text-white mt-0.5">3m × 3m What3Words Plant Checklist</div>
+      </div>
+      <button onclick="locateMeInYard()" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow">
+        📍 GPS My Square
+      </button>
+    </div>
+
+    <div id="gpsSquareBanner" class="hidden rounded-xl bg-emerald-900/60 border border-emerald-500/40 p-3 text-xs"></div>
+
+    <div id="walkPlantsList" class="flex flex-col gap-2.5"></div>
+  </main>
+
+  <script>
+    let currentYard = null;
+
+    async function loadWalkView() {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/static/sw.js").catch(() => {});
+      }
+      const resp = await fetch("/api/v1/yard/yard_default");
+      currentYard = await resp.json();
+      document.getElementById("walkYardAddress").textContent =
+        `${currentYard.street_address} · USDA Zone ${currentYard.usda_zone}`;
+      document.getElementById("walkSummary").textContent =
+        `${currentYard.plants.length} Planted Trees, Shrubs & Beds`;
+      renderWalkList();
+    }
+
+    function renderWalkList() {
+      const el = document.getElementById("walkPlantsList");
+      el.innerHTML = (currentYard.plants || []).map(p => `
+        <div class="rounded-2xl bg-stone-800 border border-stone-700 p-3.5 flex flex-col gap-2">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-sm text-white">${p.emoji} ${p.nickname || p.common_name}</div>
+              <div class="text-xs text-emerald-400 font-mono">${p.square.label} [${p.sub_slot}] · ${p.square.w3w || ""}</div>
+            </div>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-700 text-stone-200">${p.health_status}</span>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <button onclick="quickCare('${p.plant_id}', 'watered')" class="flex-1 py-1.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-xs font-semibold">💧 Watered</button>
+            <button onclick="quickCare('${p.plant_id}', 'pruned')" class="flex-1 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-xs font-semibold">✂️ Pruned</button>
+            <button onclick="quickCare('${p.plant_id}', 'harvested')" class="flex-1 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-600 text-xs font-semibold">🧺 Harvest</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function quickCare(plantId, action) {
+      const resp = await fetch(`/api/v1/yard/yard_default/plants/${plantId}/care`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (resp.ok) {
+        currentYard = await resp.json();
+        renderWalkList();
+      }
+    }
+
+    function locateMeInYard() {
+      if (!navigator.geolocation || !currentYard) return;
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const resp = await fetch("/api/v1/yard/gps-to-square", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parcel_center_lat: currentYard.parcel_center_lat,
+            parcel_center_lng: currentYard.parcel_center_lng,
+            user_lat: pos.coords.latitude,
+            user_lng: pos.coords.longitude,
+          }),
+        });
+        if (resp.ok) {
+          const sq = await resp.json();
+          const banner = document.getElementById("gpsSquareBanner");
+          banner.textContent = `📍 Standing in 3m Square ${sq.label} (${sq.w3w}) at ${sq.lat}, ${sq.lng}`;
+          banner.classList.remove("hidden");
+        }
+      });
+    }
+
+    loadWalkView();
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+name: Deploy YardSquare to Google Cloud Run (Single GCP Project - DEV & PROD Isolated)
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Cloud Run Environment to deploy (dev or prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+
+jobs:
+  test:
+    name: Run FastAPI, Parcel Border & 3m W3W Grid Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+      - name: Run Pytest Suite
+        run: python -m pytest -v
+
+  deploy-dev:
+    name: Deploy to GCP Cloud Run (DEV - yardsquare-api-dev)
+    needs: test
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Build & Deploy YardSquare DEV via Cloud Build
+        run: |
+          gcloud builds submit --config deploy/cloudbuild.dev.yaml --project "${{ env.PROJECT_ID }}"
+
+  deploy-prod:
+    name: Deploy to GCP Cloud Run (PROD - yardsquare-api-prod)
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Build & Deploy YardSquare PROD via Cloud Build
+        run: |
+          gcloud builds submit --config deploy/cloudbuild.prod.yaml --project "${{ env.PROJECT_ID }}"

@@ -1,0 +1,39 @@
+# Google Cloud Build - YardSquare DEV Environment (`dev` branch)
+# Uses `:latest` tag so Artifact Registry overwrites in-place and stays under the 500 MB Free Tier.
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api-dev:${_TAG}'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api-dev:${_TAG}'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api-dev:${_TAG}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--min-instances=0'
+      - '--max-instances=3'
+      - '--set-env-vars=ENV=dev,GCP_PROJECT_ID=$PROJECT_ID,FIRESTORE_COLLECTION_PREFIX=dev_,GCS_BUCKET_NAME=${PROJECT_ID}-media,USE_GCP_SECRET_MANAGER=true,SEED_DEMO_DATA=true'
+      - '--set-secrets=GOOGLE_MAPS_API_KEY=${_SECRET_PREFIX}-google-maps-api-key:latest,W3W_API_KEY=${_SECRET_PREFIX}-w3w-api-key:latest,SESSION_SIGNING_SECRET=${_SECRET_PREFIX}-session-signing-secret:latest'
+
+substitutions:
+  _REGION: us-central1
+  _REPO: yardsquare
+  _SERVICE_NAME: yardsquare-api-dev
+  _SECRET_PREFIX: yardsquare
+  _TAG: latest
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api-dev:${_TAG}'

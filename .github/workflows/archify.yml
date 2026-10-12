@@ -1,0 +1,49 @@
+name: Render & Verify Archify Architecture
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - "docs/architecture/**"
+      - "scripts/render_archify.py"
+      - ".github/workflows/archify.yml"
+  workflow_dispatch:
+
+jobs:
+  archify-render:
+    name: Validate & Render YardSquare Archify Diagram
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout YardSquare Repository (Full History for Source Evidence)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20 (Archify Runtime)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone Archify v3.0 Skill
+        run: |
+          git clone --depth 1 https://github.com/tt-a1i/archify.git /tmp/archify
+
+      - name: Validate Repository Evidence & Render Archify HTML + GitHub Inline SVG
+        run: |
+          python3 scripts/render_archify.py
+
+      - name: Upload Archify Architecture Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: yardsquare-archify-architecture
+          path: |
+            docs/architecture/yardsquare.architecture.json
+            docs/architecture/yardsquare-architecture.html
+            docs/architecture/yardsquare-architecture.svg
