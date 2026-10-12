@@ -16,7 +16,7 @@ on:
           - prod
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || vars.GCP_PROJECT_ID }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || 'yardsquare' }}
   REGION: ${{ vars.GCP_REGION || 'us-central1' }}
 
 jobs:
