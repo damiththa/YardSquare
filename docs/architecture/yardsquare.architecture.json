@@ -40,13 +40,13 @@
       "id": "yard_companion_ui",
       "type": "frontend",
       "label": "Yard Companion Studio",
-      "sublabel": "Web-First 3m Grid & Fence Box",
+      "sublabel": "Polygon & Corner Handle UI",
       "brand": "javascript",
       "tag": "Phase 1 Web UI",
       "pos": [40, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/index.html", "line": 1, "end_line": 1563, "label": "Web-First 3m W3W grid, Fence Box designer & auto-saved border UI" }
+        { "path": "app/static/index.html", "line": 1, "end_line": 2099, "label": "Web-First 3m W3W grid, Point-to-Point Polygon & Draggable Corner Handles" }
       ]
     },
     {
@@ -111,13 +111,13 @@
       "id": "geo_parcel_engine",
       "type": "backend",
       "label": "3m Grid & Land Engine",
-      "sublabel": "OSM footprints & Fence Polygon",
+      "sublabel": "Polygon Rasterizer & OSM",
       "brand": "python",
       "tag": "spatial math",
       "pos": [620, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1059, "label": "US E-911 suggest, OSM parcel, fence polygon sync & spatial analyzer" },
+        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1195, "label": "Bresenham/Ray-Cast polygon rasterizer, OSM parcel & spatial analyzer" },
         { "path": "app/services/w3w_service.py", "line": 1, "end_line": 98, "label": "W3W v3 resolver & 402 circuit breaker" }
       ]
     },
@@ -132,7 +132,7 @@
       "size": [168, 68],
       "sources": [
         { "path": "app/services/gcp_store.py", "line": 1, "end_line": 470, "label": "Firestore dev_*/prod_*, custom border memory & GCS store" },
-        { "path": "app/models.py", "line": 1, "end_line": 287, "label": "Pydantic v2 YardMap, BorderUpdateRequest & PlantedItem schemas" }
+        { "path": "app/models.py", "line": 1, "end_line": 291, "label": "Pydantic v2 YardMap, border_vertices & PlantedItem schemas" }
       ]
     },
     {
@@ -296,10 +296,10 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "Web-First 3m×3m W3W Yard & Fence Studio",
+      "title": "Web-First 3m×3m W3W Yard & Polygon Boundary Studio",
       "items": [
-        "Interactive 26×18 (3m×3m) What3Words property grid with Spring/Summer/Autumn/Winter foliage switcher",
-        "Fence Box Drag Designer, 1-Click W/E/N Fence Perimeter Nudge & auto-saved Cloud Firestore border memory",
+        "Interactive 26×18 (3m×3m) What3Words property grid with Live Aerial Satellite Underlay & seasonal foliage",
+        "Point-to-Point Polygon Builder, Draggable Corner Handles (P1..Pn), Midpoint (+) vertex insert & live ft/m tape measure",
         "3×3 (1m×1m) Sub-Square Inspector for dense garden beds + 1-tap care logging (Phase 2: Mobile Walk PWA)"
       ]
     },

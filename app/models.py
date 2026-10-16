@@ -103,6 +103,10 @@ class ParcelZoneMap(BaseModel):
     road_apron_cells: List[str] = Field(default_factory=list, description="List of 'R{r}-C{c}' labels for street apron")
     septic_utility_cells: List[str] = Field(default_factory=list, description="List of 'R{r}-C{c}' labels for septic/underground utilities")
     out_of_bounds_cells: List[str] = Field(default_factory=list, description="List of 'R{r}-C{c}' labels outside the property lot")
+    border_vertices: List[Dict[str, int]] = Field(
+        default_factory=list,
+        description="Ordered polygon corner vertices [{'row': r, 'col': c}, ...] on the 3m x 3m grid",
+    )
     border_polygon_lat_lng: List[List[float]] = Field(
         default_factory=list,
         description="Outer property boundary vertices [[lat, lng], ...] adjustable by the user",

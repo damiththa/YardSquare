@@ -158,3 +158,34 @@ def test_custom_fence_border_adjustment_and_memory() -> None:
     assert geo_reset.json()["remembered_custom_border"] is False
     assert geo_reset.json()["zones"]["footprint_source"] != "user_adjusted_custom_border"
 
+
+def test_custom_polygon_vertices_l_shaped_boundary() -> None:
+    yard_resp = client.get("/api/v1/yard/yard_default")
+    assert yard_resp.status_code == 200
+    zones = yard_resp.json()["zones"]
+
+    # Define a 6-corner L-shaped polygon boundary on the 3m grid
+    l_shape_vertices = [
+        {"row": 1, "col": 3},
+        {"row": 1, "col": 22},
+        {"row": 8, "col": 22},
+        {"row": 8, "col": 17},
+        {"row": 16, "col": 17},
+        {"row": 16, "col": 3},
+    ]
+    zones["border_vertices"] = l_shape_vertices
+    zones["fence_border_cells"] = []  # Let backend rasterize from polygon vertices
+
+    border_resp = client.put(
+        "/api/v1/yard/yard_default/borders",
+        json={"zones": zones, "yard_name": "Evergreen L-Shaped Polygon Yard"},
+    )
+    assert border_resp.status_code == 200
+    saved = border_resp.json()
+    assert saved["zones"]["footprint_source"] == "user_adjusted_custom_border"
+    assert len(saved["zones"]["border_vertices"]) == 6
+    assert len(saved["zones"]["border_polygon_lat_lng"]) == 6
+    assert len(saved["zones"]["fence_border_cells"]) > 20
+    assert "R12-C21" in saved["zones"]["out_of_bounds_cells"]
+
+

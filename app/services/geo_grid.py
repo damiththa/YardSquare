@@ -625,6 +625,12 @@ def extract_actual_land_and_footprints(
         road_apron_cells=sorted(road_cells),
         septic_utility_cells=[format_cell_label(7, max_lot_c - 2), format_cell_label(8, max_lot_c - 2)],
         out_of_bounds_cells=sorted(out_of_bounds_cells),
+        border_vertices=[
+            {"row": min_lot_r, "col": min_lot_c},
+            {"row": min_lot_r, "col": max_lot_c},
+            {"row": max_lot_r, "col": max_lot_c},
+            {"row": max_lot_r, "col": min_lot_c},
+        ],
         border_polygon_lat_lng=[
             [nw_lat, nw_lng],
             [ne_lat, ne_lng],
@@ -633,6 +639,116 @@ def extract_actual_land_and_footprints(
         ],
         footprint_source=footprint_source,
     )
+
+
+def bresenham_grid_line(r0: int, c0: int, r1: int, c1: int) -> List[Tuple[int, int]]:
+    """Trace all 3m x 3m grid cells along a straight or angled fence segment from (r0, c0) to (r1, c1)."""
+    points: List[Tuple[int, int]] = []
+    dr = abs(r1 - r0)
+    dc = abs(c1 - c0)
+    sr = 1 if r0 < r1 else -1
+    sc = 1 if c0 < c1 else -1
+    err = dc - dr
+    r, c = r0, c0
+    while True:
+        points.append((r, c))
+        if r == r1 and c == c1:
+            break
+        e2 = 2 * err
+        if e2 > -dr:
+            err -= dr
+            c += sc
+        if e2 < dc:
+            err += dc
+            r += sr
+    return points
+
+
+def point_in_grid_polygon(row: float, col: float, vertices: List[Tuple[int, int]]) -> bool:
+    """2D ray-casting point-in-polygon check in (row, col) grid space."""
+    inside = False
+    n = len(vertices)
+    if n < 3:
+        return False
+    j = n - 1
+    for i in range(n):
+        ri, ci = vertices[i]
+        rj, cj = vertices[j]
+        intersect = ((ri > row) != (rj > row)) and (
+            col < (cj - ci) * (row - ri) / ((rj - ri) or 1e-12) + ci
+        )
+        if intersect:
+            inside = not inside
+        j = i
+    return inside
+
+
+def rasterize_polygon_vertices_to_zones(
+    zones: ParcelZoneMap,
+    vertices: List[Dict[str, int]],
+    grid_rows: Optional[int] = None,
+    grid_cols: Optional[int] = None,
+) -> ParcelZoneMap:
+    """
+    Given >= 3 ordered corner vertices `[{'row': r, 'col': c}, ...]`, rasterize the custom
+    polygon perimeter into `fence_border_cells` (via Bresenham line segments) and classify
+    exterior squares into `out_of_bounds_cells` while preserving buildings, driveway, and septic.
+    """
+    settings = get_settings()
+    rows = grid_rows or settings.DEFAULT_GRID_ROWS
+    cols = grid_cols or settings.DEFAULT_GRID_COLS
+
+    clean_verts: List[Tuple[int, int]] = []
+    for v in vertices or []:
+        if "row" in v and "col" in v:
+            r = max(0, min(rows - 1, int(v["row"])))
+            c = max(0, min(cols - 1, int(v["col"])))
+            clean_verts.append((r, c))
+
+    if len(clean_verts) < 3:
+        return zones
+
+    zones.border_vertices = [{"row": r, "col": c} for r, c in clean_verts]
+
+    house_set = set(zones.house_roof_cells or [])
+    garage_set = set(zones.garage_shed_cells or [])
+    driveway_set = set(zones.driveway_patio_cells or [])
+    septic_set = set(zones.septic_utility_cells or [])
+    road_set = set(zones.road_apron_cells or [])
+
+    perimeter_coords: Set[Tuple[int, int]] = set()
+    n = len(clean_verts)
+    for i in range(n):
+        r0, c0 = clean_verts[i]
+        r1, c1 = clean_verts[(i + 1) % n]
+        for pt in bresenham_grid_line(r0, c0, r1, c1):
+            perimeter_coords.add(pt)
+
+    new_fence: Set[str] = set()
+    new_oob: Set[str] = set()
+
+    for r in range(rows):
+        for c in range(cols):
+            lbl = format_cell_label(r, c)
+            if lbl in road_set:
+                continue
+            if (r, c) in perimeter_coords:
+                if (
+                    r < rows - 2
+                    and lbl not in house_set
+                    and lbl not in garage_set
+                    and lbl not in driveway_set
+                    and lbl not in septic_set
+                ):
+                    new_fence.add(lbl)
+            elif not point_in_grid_polygon(r, c, clean_verts):
+                if lbl not in house_set and lbl not in garage_set and lbl not in driveway_set:
+                    new_oob.add(lbl)
+
+    zones.fence_border_cells = sorted(new_fence)
+    zones.out_of_bounds_cells = sorted(new_oob)
+    zones.footprint_source = "user_adjusted_custom_border"
+    return zones
 
 
 def recalculate_border_polygon_from_zones(
@@ -644,12 +760,25 @@ def recalculate_border_polygon_from_zones(
 ) -> List[List[float]]:
     """
     Recompute the outer property border GPS polygon (`[[lat, lng], ...]`) from the homeowner's
-    adjusted `fence_border_cells` (or active inside-lot cells) so custom fence dimensions persist
-    accurately in Cloud Firestore.
+    `border_vertices` (for custom multi-corner / L-shaped / angled polygons) or `fence_border_cells`
+    so custom fence dimensions persist accurately in Cloud Firestore.
     """
     settings = get_settings()
     rows = grid_rows or settings.DEFAULT_GRID_ROWS
     cols = grid_cols or settings.DEFAULT_GRID_COLS
+
+    # If the user provided >= 3 polygon vertices and fence_border_cells wasn't populated yet, rasterize now
+    if len(zones.border_vertices or []) >= 3 and not zones.fence_border_cells:
+        rasterize_polygon_vertices_to_zones(zones, zones.border_vertices, rows, cols)
+
+    if len(zones.border_vertices or []) >= 3:
+        poly_lat_lng: List[List[float]] = []
+        for v in zones.border_vertices:
+            vr = max(0, min(rows - 1, int(v.get("row", 0))))
+            vc = max(0, min(cols - 1, int(v.get("col", 0))))
+            vlat, vlng = grid_cell_to_lat_lng(center_lat, center_lng, vr, vc, rows, cols)
+            poly_lat_lng.append([vlat, vlng])
+        return poly_lat_lng
 
     fence_pts = [parse_cell_label(lbl) for lbl in (zones.fence_border_cells or [])]
     valid_fence = [pt for pt in fence_pts if pt is not None]
@@ -674,6 +803,13 @@ def recalculate_border_polygon_from_zones(
         max_r = max(pt[0] for pt in inside_pts)
         min_c = min(pt[1] for pt in inside_pts)
         max_c = max(pt[1] for pt in inside_pts)
+
+    zones.border_vertices = [
+        {"row": min_r, "col": min_c},
+        {"row": min_r, "col": max_c},
+        {"row": max_r, "col": max_c},
+        {"row": max_r, "col": min_c},
+    ]
 
     nw_lat, nw_lng = grid_cell_to_lat_lng(center_lat, center_lng, min_r, min_c, rows, cols)
     ne_lat, ne_lng = grid_cell_to_lat_lng(center_lat, center_lng, min_r, max_c, rows, cols)

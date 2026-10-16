@@ -124,8 +124,8 @@
         <path data-edge-from="geo_parcel_engine" data-edge-to="external_geo_w3w" data-edge-label="Stage 2 rooftop &amp; 3WA" data-edge-key="7" data-edge-id="geo-to-external" data-composition-points="788,129;910,129" d="M 788 129 L 910 129" class="a-dashed" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="geo_parcel_engine" data-edge-to="photon_overpass_osm" data-edge-label="Stage 1 &amp; OSM buildings ($0)" data-edge-key="8" data-edge-id="geo-to-photon" data-composition-points="788,129;849,129;849,274;910,274" d="M 788 129 L 849 129 L 849 274 L 910 274" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="botanical_catalog_engine" data-edge-to="phzm_usda_climate" data-edge-label="USDA zone compatibility" data-edge-key="9" data-edge-id="geo-to-phzm" data-composition-points="788,419;910,419" d="M 788 419 L 910 419" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <g id="node-yard_companion_ui" data-node-id="yard_companion_ui" data-node-label="Yard Companion Studio" tabindex="0" role="button" aria-label="Focus Yard Companion Studio, Web-First 3m Grid &amp; Fence Box, Architecture component, Phase 1 Web UI" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Web-First 3m Grid &amp; Fence Box" data-node-tag="Phase 1 Web UI" data-node-context="Architecture component">
-          <title>Yard Companion Studio · Web-First 3m Grid &amp; Fence Box · Architecture component · Phase 1 Web UI</title>
+        <g id="node-yard_companion_ui" data-node-id="yard_companion_ui" data-node-label="Yard Companion Studio" tabindex="0" role="button" aria-label="Focus Yard Companion Studio, Polygon &amp; Corner Handle UI, Architecture component, Phase 1 Web UI" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Polygon &amp; Corner Handle UI" data-node-tag="Phase 1 Web UI" data-node-context="Architecture component">
+          <title>Yard Companion Studio · Polygon &amp; Corner Handle UI · Architecture component · Phase 1 Web UI</title>
           <rect x="40" y="95" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="40" y="95" width="168" height="68" rx="6" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 101) scale(0.6875)">
@@ -139,7 +139,7 @@
             <text x="16" y="9.5">1 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="124.0" y="128.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Yard Companion Studio</text>
-        <text data-detail="context" x="124.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">Web-First 3m Grid &amp; Fence Box</text>
+        <text data-detail="context" x="124.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">Polygon &amp; Corner Handle UI</text>
         <text data-detail="fine" x="124.0" y="156" class="t-frontend" font-size="7.0" text-anchor="middle">Phase 1 Web UI</text>
         </g>
 
@@ -214,8 +214,8 @@
         <text data-detail="fine" x="414.0" y="301" class="t-cloud" font-size="7.0" text-anchor="middle">us-central1</text>
         </g>
 
-        <g id="node-geo_parcel_engine" data-node-id="geo_parcel_engine" data-node-label="3m Grid &amp; Land Engine" tabindex="0" role="button" aria-label="Focus 3m Grid &amp; Land Engine, OSM footprints &amp; Fence Polygon, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), spatial math" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OSM footprints &amp; Fence Polygon" data-node-tag="spatial math" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
-          <title>3m Grid &amp; Land Engine · OSM footprints &amp; Fence Polygon · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · spatial math</title>
+        <g id="node-geo_parcel_engine" data-node-id="geo_parcel_engine" data-node-label="3m Grid &amp; Land Engine" tabindex="0" role="button" aria-label="Focus 3m Grid &amp; Land Engine, Polygon Rasterizer &amp; OSM, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), spatial math" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Polygon Rasterizer &amp; OSM" data-node-tag="spatial math" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
+          <title>3m Grid &amp; Land Engine · Polygon Rasterizer &amp; OSM · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · spatial math</title>
           <rect x="620" y="95" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="620" y="95" width="168" height="68" rx="6" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(626 101) scale(0.6875)">
@@ -226,7 +226,7 @@
             <text x="16" y="9.5">2 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="704.0" y="128.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">3m Grid &amp; Land Engine</text>
-        <text data-detail="context" x="704.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">OSM footprints &amp; Fence Polygon</text>
+        <text data-detail="context" x="704.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">Polygon Rasterizer &amp; OSM</text>
         <text data-detail="fine" x="704.0" y="156" class="t-backend" font-size="7.0" text-anchor="middle">spatial math</text>
         </g>
 

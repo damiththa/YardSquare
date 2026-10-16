@@ -50,10 +50,22 @@
       background: radial-gradient(circle at 35% 30%, #f1f5f9 0%, #e2e8f0 55%, #cbd5e1 100%);
     }
     .satellite-underlay {
-      background-image:
-        radial-gradient(rgba(255,255,255,0.07) 1px, transparent 0),
-        linear-gradient(135deg, rgba(6, 46, 28, 0.38) 0%, rgba(15, 62, 38, 0.45) 50%, rgba(9, 41, 24, 0.52) 100%);
-      background-size: 12px 12px, 100% 100%;
+      background: rgba(10, 32, 20, 0.22) !important;
+    }
+    .satellite-underlay .grid-cell {
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+    .satellite-underlay .cell-oob {
+      background: rgba(15, 23, 42, 0.62);
+      opacity: 0.72;
+    }
+    .svg-handle-interactive {
+      pointer-events: all;
+      cursor: grab;
+      transition: transform 0.1s ease;
+    }
+    .svg-handle-interactive:active {
+      cursor: grabbing;
     }
     .grid-cell {
       border: 1px solid rgba(255, 255, 255, 0.22);
@@ -91,8 +103,8 @@
       color: #334155;
     }
     .cell-fence {
-      background: rgba(120, 53, 15, 0.28);
-      box-shadow: inset 0 0 0 1.5px rgba(146, 64, 14, 0.75);
+      background: rgba(120, 53, 15, 0.32);
+      box-shadow: inset 0 0 0 1.5px rgba(146, 64, 14, 0.82);
     }
     .cell-road {
       background: #334155;
@@ -255,7 +267,7 @@
             </label>
             <label class="inline-flex items-center gap-1 cursor-pointer">
               <input type="checkbox" id="chkSatellite" onchange="renderGrid()" class="rounded text-stone-700" />
-              <span>🛰️ Aerial Texture</span>
+              <span>🛰️ Live Aerial Property View</span>
             </label>
           </div>
         </div>
@@ -286,18 +298,24 @@
 
         <!-- Dynamic Sub-Toolbar: Fence & Property Border Designer (Shown in 'border' mode) -->
         <div id="subToolbar-border" class="hidden bg-amber-50/90 rounded-xl p-3 border border-amber-300 flex flex-col gap-2.5">
-          <!-- Row 1: Fence Drawing Tools & Land Zone Brushes -->
+          <!-- Row 1: Point-to-Point Polygon, Draggable Corner Handles & Land Zone Brushes -->
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-xs font-bold text-amber-950 mr-1">1. Choose Fence / Land Tool:</span>
-              <button onclick="setBorderBrush('fence_box')" id="brushBtn-fence_box" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-800 text-white shadow-sm" title="Click and drag from one corner square to another to draw a complete rectangular property fence">
-                📐 Draw Fence Box (Drag Rectangle)
+              <span class="text-xs font-bold text-amber-950 mr-1">1. Boundary & Land Tool:</span>
+              <button onclick="setBorderBrush('polygon_edit')" id="brushBtn-polygon_edit" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-800 text-white shadow-sm" title="Drag corner handles (P1, P2...) on the grid to reshape your boundary, or click any midpoint (+) to add a corner for L-shaped/angled lots">
+                📍 Drag Corners & Reshape (● Handles)
               </button>
-              <button onclick="setBorderBrush('fence_border')" id="brushBtn-fence_border" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag individual 3m squares to draw custom fence lines">
+              <button onclick="startNewPolygonDraw()" id="brushBtn-polygon_draw" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click corner by corner (P1 → P2 → P3...) on the 3m grid with a live ft/m tape measure to draw any custom angled or L-shaped boundary">
+                ✏️ Click-to-Draw Polygon (Point-to-Point)
+              </button>
+              <button onclick="setBorderBrush('fence_box')" id="brushBtn-fence_box" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click and drag from one corner square to another to draw a rectangular property fence">
+                📐 Drag Rectangle Box
+              </button>
+              <button onclick="setBorderBrush('fence_border')" id="brushBtn-fence_border" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag individual 3m squares to paint custom fence lines">
                 🪵 Paint Fence Line
               </button>
               <button onclick="setBorderBrush('yard')" id="brushBtn-yard" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Erase fence or convert squares into open plantable lawn">
-                🌿 Lawn / Erase Fence
+                🌿 Lawn / Erase
               </button>
               <button onclick="setBorderBrush('house_roof')" id="brushBtn-house_roof" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
                 🏠 House Roof
@@ -316,14 +334,37 @@
               </button>
             </div>
             <span id="fenceLotDimensionsBadge" class="text-[11px] font-mono-code font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-950 border border-amber-300">
-              🪵 Fenced Lot: 197 ft × 157 ft (60m × 48m)
+              🪵 4 Corners · 197 ft × 157 ft (60m × 48m)
             </span>
           </div>
 
-          <!-- Row 2: 1-Click Fence Perimeter Nudge & Reset Controls -->
+          <!-- Active Point-to-Point Polygon Drawing Helper Bar (Shown when clicking corners) -->
+          <div id="polygonDrawActiveBar" class="hidden bg-amber-100/90 rounded-lg px-3 py-1.5 border border-amber-400 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-amber-950" id="polygonDrawStatusText">
+                ✏️ Click any 3m square on the grid to place Corner P1 (then P2, P3... for angled or L-shaped boundaries).
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="undoLastPolygonDraftVertex()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 text-stone-800 border border-amber-300 font-semibold">
+                ↩ Undo Last Point
+              </button>
+              <button onclick="finishPolygonDraw()" id="btnFinishPolygonDraw" class="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm">
+                ✓ Complete & Lock Polygon
+              </button>
+              <button onclick="cancelPolygonDraw()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
+                ✕ Cancel
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 2: Shape Presets, 1-Click Fence Perimeter Nudge & Reset Controls -->
           <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-200/80 text-xs">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="font-bold text-amber-950">2. Quick Resize Fence Perimeter:</span>
+              <span class="font-bold text-amber-950">2. Shape Presets & Quick Nudge:</span>
+              <button onclick="applyLShapedPreset()" class="px-2.5 py-0.5 rounded-lg bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 font-semibold transition" title="Convert boundary into a 6-corner L-shaped yard that you can drag and customize">
+                📐 L-Shaped Lot (6 Corners)
+              </button>
               <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
                 <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">West</span>
                 <button onclick="nudgeFencePerimeter('west', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Expand West fence outward">◀ Out</button>
@@ -340,11 +381,11 @@
                 <button onclick="nudgeFencePerimeter('north', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Move North (back) fence inward">In ▼</button>
               </div>
               <button onclick="resetFenceToDefaultFootprint()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold transition">
-                🔄 Reset to Default Footprint
+                🔄 Reset Default
               </button>
             </div>
             <span class="text-[11px] text-amber-900 font-medium">
-              ✨ Every fence & border adjustment auto-saves to Cloud Firestore so your yard is always remembered.
+              💡 Tip: Drag any <strong>P1..Pn</strong> corner handle, click any <strong>+</strong> midpoint to add a corner, or Alt-click a corner to remove it!
             </span>
           </div>
         </div>
@@ -382,9 +423,10 @@
             </div>
           </div>
 
-          <!-- The Grid Board + SVG Canopy & Hose Overlay -->
+          <!-- The Grid Board + Live Aerial Underlay + SVG Polygon/Canopy/Hose Overlay -->
           <div id="gridWrapper" class="relative rounded-xl overflow-hidden shadow-md border border-emerald-950/20">
-            <div id="yardGridBoard" class="yard-grid-board season-summer"></div>
+            <img id="aerialUnderlayImg" alt="Live Property Aerial Satellite Underlay" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none z-0" />
+            <div id="yardGridBoard" class="yard-grid-board season-summer z-10"></div>
             <svg id="yardSvgOverlay" viewBox="0 0 260 180" class="absolute inset-0 w-full h-full pointer-events-none z-20"></svg>
           </div>
 
@@ -496,15 +538,19 @@
       season: "summer",
       canopyScale: 1.0,
       interactionMode: "inspect", // 'inspect' | 'border' | 'plant' | 'water'
-      borderBrush: "fence_box",   // 'fence_box' | 'fence_border' | 'yard' | 'house_roof' | ...
+      borderBrush: "polygon_edit", // 'polygon_edit' | 'polygon_draw' | 'fence_box' | 'fence_border' | 'yard' | ...
       waterTool: "s1",
       selectedSpeciesId: "malus_honeycrisp",
       selectedSubSlot: "C",
       selectedCell: { row: 3, col: 6 },
+      hoverCell: { row: 3, col: 6 },
       isMouseDown: false,
       hasUnsavedBorderChanges: false,
       fenceBoxDragStart: null,
       fenceBoxDragCurrent: null,
+      draggingVertexIndex: null,
+      polygonDraftVertices: [],
+      lastAerialBboxKey: "",
     };
 
     async function initApp() {
@@ -525,6 +571,7 @@
         state.yard = await yardResp.json();
       }
 
+      ensureBorderVertices();
       populateSpeciesPicker();
       populateSavedYardsDropdown();
       syncHeaderAndControls();
@@ -534,8 +581,16 @@
       setupAutocomplete();
 
       window.addEventListener("mouseup", async () => {
-        if (!state.isMouseDown) return;
+        if (!state.isMouseDown && state.draggingVertexIndex === null) return;
         state.isMouseDown = false;
+
+        if (state.draggingVertexIndex !== null) {
+          state.draggingVertexIndex = null;
+          if (state.hasUnsavedBorderChanges) {
+            await saveBordersToCloud();
+          }
+          return;
+        }
 
         if (state.interactionMode === "border" && state.borderBrush === "fence_box" && state.fenceBoxDragStart && state.fenceBoxDragCurrent) {
           const r1 = state.fenceBoxDragStart.row;
@@ -588,6 +643,7 @@
       const resp = await fetch(`/api/v1/yard/${yardId}`);
       if (resp.ok) {
         state.yard = await resp.json();
+        ensureBorderVertices();
         syncHeaderAndControls();
         renderGrid();
         await renderSelectedSquareInspector();
@@ -615,6 +671,7 @@
         state.yardId = newId;
         localStorage.setItem(STORAGE_KEY_ACTIVE_YARD, newId);
         state.yard = await resp.json();
+        ensureBorderVertices();
         await refreshSavedYardsList();
         syncHeaderAndControls();
         renderGrid();
@@ -641,20 +698,60 @@
       }
     }
 
+    function ensureBorderVertices() {
+      if (!state.yard || !state.yard.zones) return [];
+      const z = state.yard.zones;
+      if (Array.isArray(z.border_vertices) && z.border_vertices.length >= 3) {
+        return z.border_vertices;
+      }
+      const b = getCurrentFenceBounds();
+      z.border_vertices = [
+        { row: b.minR, col: b.minC },
+        { row: b.minR, col: b.maxC },
+        { row: b.maxR, col: b.maxC },
+        { row: b.maxR, col: b.minC },
+      ];
+      return z.border_vertices;
+    }
+
+    function computePolygonMetrics(verts) {
+      const sqFt = state.yard?.square_size_feet || 9.8425;
+      const sqM = state.yard?.square_size_meters || 3.0;
+      if (!verts || verts.length < 2) {
+        return { perimeterFt: 0, perimeterM: 0, areaSqFt: 0, areaSqM: 0 };
+      }
+      let perimSquares = 0;
+      let shoelaceSum = 0;
+      const n = verts.length;
+      for (let i = 0; i < n; i++) {
+        const a = verts[i];
+        const b = verts[(i + 1) % n];
+        perimSquares += Math.hypot(b.row - a.row, b.col - a.col);
+        shoelaceSum += (a.col * b.row) - (b.col * a.row);
+      }
+      const areaSquares = Math.abs(shoelaceSum) / 2.0;
+      return {
+        perimeterFt: Math.round(perimSquares * sqFt),
+        perimeterM: Math.round(perimSquares * sqM),
+        areaSqFt: Math.round(areaSquares * sqFt * sqFt),
+        areaSqM: Math.round(areaSquares * sqM * sqM),
+      };
+    }
+
     function updateFenceDimensionsBadge() {
       const badge = document.getElementById("fenceLotDimensionsBadge");
       if (!badge || !state.yard) return;
+      const verts = ensureBorderVertices();
       const bounds = getCurrentFenceBounds();
       const sqFt = state.yard.square_size_feet || 9.8425;
       const sqM = state.yard.square_size_meters || 3.0;
-      const widthSquares = bounds.maxC - bounds.minC + 1;
-      const depthSquares = bounds.maxR - bounds.minR + 1;
-      const widthFt = Math.round(widthSquares * sqFt);
-      const depthFt = Math.round(depthSquares * sqFt);
-      const widthM = Math.round(widthSquares * sqM);
-      const depthM = Math.round(depthSquares * sqM);
-      const fenceCount = (state.yard.zones?.fence_border_cells || []).length;
-      badge.textContent = `🪵 Fenced Lot: ${widthFt} ft × ${depthFt} ft (${widthM}m × ${depthM}m · ${fenceCount} Fence Squares)`;
+      const widthFt = Math.round((bounds.maxC - bounds.minC + 1) * sqFt);
+      const depthFt = Math.round((bounds.maxR - bounds.minR + 1) * sqFt);
+      const widthM = Math.round((bounds.maxC - bounds.minC + 1) * sqM);
+      const depthM = Math.round((bounds.maxR - bounds.minR + 1) * sqM);
+      const metrics = computePolygonMetrics(verts);
+      badge.textContent =
+        `🪵 ${verts.length} Corners · ${widthFt}×${depthFt} ft (${widthM}×${depthM}m) · Perim: ${metrics.perimeterFt} ft · ~${metrics.areaSqFt.toLocaleString()} sq ft`;
     }
 
     function updateCloudMemoryStatus(statusType, customMessage) {
@@ -727,13 +824,31 @@
         }
       });
       if (mode === "border") {
+        ensureBorderVertices();
         updateFenceDimensionsBadge();
       }
+      renderGrid();
     }
 
     function setBorderBrush(brush) {
       state.borderBrush = brush;
-      const brushes = ["fence_box", "fence_border", "yard", "house_roof", "garage_shed", "driveway_patio", "septic_utility", "out_of_bounds"];
+      if (brush !== "polygon_draw") {
+        state.polygonDraftVertices = [];
+        const drawBar = document.getElementById("polygonDrawActiveBar");
+        if (drawBar) drawBar.classList.add("hidden");
+      }
+      const brushes = [
+        "polygon_edit",
+        "polygon_draw",
+        "fence_box",
+        "fence_border",
+        "yard",
+        "house_roof",
+        "garage_shed",
+        "driveway_patio",
+        "septic_utility",
+        "out_of_bounds",
+      ];
       brushes.forEach(b => {
         const btn = document.getElementById(`brushBtn-${b}`);
         if (!btn) return;
@@ -743,6 +858,76 @@
           btn.className = "px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300";
         }
       });
+      renderSvgOverlay();
+    }
+
+    function startNewPolygonDraw() {
+      setInteractionMode("border");
+      state.polygonDraftVertices = [];
+      setBorderBrush("polygon_draw");
+      const drawBar = document.getElementById("polygonDrawActiveBar");
+      if (drawBar) drawBar.classList.remove("hidden");
+      updatePolygonDrawHelperText();
+      renderSvgOverlay();
+      showToast("✏️ Point-to-Point Polygon Mode: Click corners P1, P2, P3... on the 3m grid!");
+    }
+
+    function updatePolygonDrawHelperText() {
+      const el = document.getElementById("polygonDrawStatusText");
+      if (!el) return;
+      const count = state.polygonDraftVertices.length;
+      if (count === 0) {
+        el.textContent = "✏️ Click any 3m square on the grid to place Corner P1 (start of your custom boundary).";
+      } else if (count < 3) {
+        el.textContent = `✏️ Placed ${count} corner${count > 1 ? "s" : ""} (P1..P${count}). Click at least ${3 - count} more corner${3 - count > 1 ? "s" : ""} to form a closed boundary.`;
+      } else {
+        const metrics = computePolygonMetrics(state.polygonDraftVertices);
+        el.textContent = `✏️ ${count} corners placed (Perim ~${metrics.perimeterFt} ft / ${metrics.perimeterM}m). Click next corner, or click P1 / '✓ Complete & Lock Polygon' to finish!`;
+      }
+    }
+
+    function undoLastPolygonDraftVertex() {
+      if (state.polygonDraftVertices.length > 0) {
+        state.polygonDraftVertices.pop();
+        updatePolygonDrawHelperText();
+        renderSvgOverlay();
+      }
+    }
+
+    function cancelPolygonDraw() {
+      state.polygonDraftVertices = [];
+      setBorderBrush("polygon_edit");
+      showToast("Cancelled point-to-point polygon draft.");
+    }
+
+    async function finishPolygonDraw() {
+      if (state.polygonDraftVertices.length < 3) {
+        showToast("⚠️ Please click at least 3 corners on the grid before completing the polygon!");
+        return;
+      }
+      const newVerts = state.polygonDraftVertices.map(v => ({ row: v.row, col: v.col }));
+      state.polygonDraftVertices = [];
+      applyPolygonVerticesToZones(newVerts);
+      setBorderBrush("polygon_edit");
+      await saveBordersToCloud();
+    }
+
+    async function applyLShapedPreset() {
+      if (!state.yard) return;
+      const rows = state.yard.grid_rows || 18;
+      const cols = state.yard.grid_cols || 26;
+      const lShapeVerts = [
+        { row: 1, col: 3 },
+        { row: 1, col: cols - 4 },
+        { row: 8, col: cols - 4 },
+        { row: 8, col: cols - 9 },
+        { row: rows - 2, col: cols - 9 },
+        { row: rows - 2, col: 3 },
+      ];
+      applyPolygonVerticesToZones(lShapeVerts);
+      setBorderBrush("polygon_edit");
+      await saveBordersToCloud();
+      showToast("📐 Applied 6-corner L-Shaped Lot boundary! Drag any P1..P6 handle to customize.");
     }
 
     function setWaterTool(tool) {
@@ -769,6 +954,15 @@
     function getCurrentFenceBounds() {
       const rows = state.yard?.grid_rows || 18;
       const cols = state.yard?.grid_cols || 26;
+      const verts = state.yard?.zones?.border_vertices || [];
+      if (verts.length >= 3) {
+        return {
+          minR: Math.min(...verts.map(v => v.row)),
+          maxR: Math.max(...verts.map(v => v.row)),
+          minC: Math.min(...verts.map(v => v.col)),
+          maxC: Math.max(...verts.map(v => v.col)),
+        };
+      }
       const fenceCells = (state.yard?.zones?.fence_border_cells || []).map(parseCellCoords).filter(Boolean);
       if (fenceCells.length > 0) {
         return {
@@ -781,22 +975,79 @@
       return { minR: 1, maxR: rows - 2, minC: 3, maxC: cols - 4 };
     }
 
-    function applyRectangularFencePerimeter(minR, maxR, minC, maxC) {
-      if (!state.yard || !state.yard.zones) return;
+    function bresenhamGridLine(r0, c0, r1, c1) {
+      const pts = [];
+      const dr = Math.abs(r1 - r0);
+      const dc = Math.abs(c1 - c0);
+      const sr = r0 < r1 ? 1 : -1;
+      const sc = c0 < c1 ? 1 : -1;
+      let err = dc - dr;
+      let r = r0;
+      let c = c0;
+      while (true) {
+        pts.push({ r, c });
+        if (r === r1 && c === c1) break;
+        const e2 = 2 * err;
+        if (e2 > -dr) {
+          err -= dr;
+          c += sc;
+        }
+        if (e2 < dc) {
+          err += dc;
+          r += sr;
+        }
+      }
+      return pts;
+    }
+
+    function pointInGridPolygon(row, col, verts) {
+      let inside = false;
+      const n = verts.length;
+      if (n < 3) return false;
+      let j = n - 1;
+      for (let i = 0; i < n; i++) {
+        const ri = verts[i].row;
+        const ci = verts[i].col;
+        const rj = verts[j].row;
+        const cj = verts[j].col;
+        const intersect = ((ri > row) !== (rj > row)) &&
+          (col < ((cj - ci) * (row - ri)) / ((rj - ri) || 1e-12) + ci);
+        if (intersect) inside = !inside;
+        j = i;
+      }
+      return inside;
+    }
+
+    function applyPolygonVerticesToZones(vertices) {
+      if (!state.yard || !state.yard.zones || !vertices || vertices.length < 3) return;
       const rows = state.yard.grid_rows || 18;
       const cols = state.yard.grid_cols || 26;
       const z = state.yard.zones;
 
-      const clampedMinR = Math.max(0, Math.min(rows - 3, minR));
-      const clampedMaxR = Math.max(clampedMinR + 2, Math.min(rows - 2, maxR));
-      const clampedMinC = Math.max(0, Math.min(cols - 3, minC));
-      const clampedMaxC = Math.max(clampedMinC + 2, Math.min(cols - 1, maxC));
+      const cleanVerts = vertices.map(v => ({
+        row: Math.max(0, Math.min(rows - 2, Math.round(v.row))),
+        col: Math.max(0, Math.min(cols - 1, Math.round(v.col))),
+      }));
+      z.border_vertices = cleanVerts;
 
       const houseSet = new Set(z.house_roof_cells || []);
       const garageSet = new Set(z.garage_shed_cells || []);
       const drivewaySet = new Set(z.driveway_patio_cells || []);
       const septicSet = new Set(z.septic_utility_cells || []);
       const roadSet = new Set(z.road_apron_cells || []);
+
+      const perimeterSet = new Set();
+      const n = cleanVerts.length;
+      for (let i = 0; i < n; i++) {
+        const a = cleanVerts[i];
+        const b = cleanVerts[(i + 1) % n];
+        // Leave front street opening unfenced along the bottom row (rows - 2) unless angled
+        const isBottomStreetEdge = (a.row >= rows - 2 && b.row >= rows - 2);
+        if (isBottomStreetEdge) continue;
+        bresenhamGridLine(a.row, a.col, b.row, b.col).forEach(pt => {
+          perimeterSet.add(`${pt.r}:${pt.c}`);
+        });
+      }
 
       const newFence = [];
       const newOob = [];
@@ -805,19 +1056,16 @@
         for (let c = 0; c < cols; c++) {
           const lbl = cellLabel(r, c);
           if (roadSet.has(lbl)) continue;
+          const isPerim = perimeterSet.has(`${r}:${c}`);
+          const isInside = pointInGridPolygon(r, c, cleanVerts);
 
-          const isOutside = r < clampedMinR || r > clampedMaxR || c < clampedMinC || c > clampedMaxC;
-          const isPerimeter =
-            !isOutside &&
-            (r === clampedMinR || c === clampedMinC || c === clampedMaxC || (r === clampedMaxR && clampedMaxR < rows - 2));
-
-          if (isOutside) {
-            if (!houseSet.has(lbl) && !garageSet.has(lbl) && !drivewaySet.has(lbl)) {
-              newOob.push(lbl);
-            }
-          } else if (isPerimeter) {
+          if (isPerim) {
             if (!houseSet.has(lbl) && !garageSet.has(lbl) && !drivewaySet.has(lbl) && !septicSet.has(lbl)) {
               newFence.push(lbl);
+            }
+          } else if (!isInside) {
+            if (!houseSet.has(lbl) && !garageSet.has(lbl) && !drivewaySet.has(lbl)) {
+              newOob.push(lbl);
             }
           }
         }
@@ -827,8 +1075,27 @@
       z.out_of_bounds_cells = newOob;
       z.footprint_source = "user_adjusted_custom_border";
       state.hasUnsavedBorderChanges = true;
+      updateCloudMemoryStatus("saving");
       updateFenceDimensionsBadge();
       renderGrid();
+    }
+
+    function applyRectangularFencePerimeter(minR, maxR, minC, maxC) {
+      if (!state.yard || !state.yard.zones) return;
+      const rows = state.yard.grid_rows || 18;
+      const cols = state.yard.grid_cols || 26;
+      const clampedMinR = Math.max(0, Math.min(rows - 3, minR));
+      const clampedMaxR = Math.max(clampedMinR + 2, Math.min(rows - 2, maxR));
+      const clampedMinC = Math.max(0, Math.min(cols - 3, minC));
+      const clampedMaxC = Math.max(clampedMinC + 2, Math.min(cols - 1, maxC));
+
+      const rectVerts = [
+        { row: clampedMinR, col: clampedMinC },
+        { row: clampedMinR, col: clampedMaxC },
+        { row: clampedMaxR, col: clampedMaxC },
+        { row: clampedMaxR, col: clampedMinC },
+      ];
+      applyPolygonVerticesToZones(rectVerts);
     }
 
     async function nudgeFencePerimeter(side, delta) {
@@ -893,6 +1160,39 @@
       return "full_sun";
     }
 
+    function updateAerialSatelliteUnderlay() {
+      const img = document.getElementById("aerialUnderlayImg");
+      if (!img || !state.yard) return;
+      const showSat = document.getElementById("chkSatellite").checked;
+      if (!showSat) {
+        img.classList.add("hidden");
+        return;
+      }
+      img.classList.remove("hidden");
+      const lat = state.yard.parcel_center_lat || 44.2601;
+      const lng = state.yard.parcel_center_lng || -72.5754;
+      const rows = state.yard.grid_rows || 18;
+      const cols = state.yard.grid_cols || 26;
+      const sqM = state.yard.square_size_meters || 3.0;
+      const centerRow = Math.floor(rows / 2);
+      const centerCol = Math.floor(cols / 2);
+
+      const latDegPerM = 1.0 / 111320.0;
+      const cosLat = Math.max(0.2, Math.cos((lat * Math.PI) / 180.0));
+      const lngDegPerM = 1.0 / (111320.0 * cosLat);
+
+      const northLat = (lat + (centerRow + 0.5) * sqM * latDegPerM).toFixed(6);
+      const southLat = (lat - (rows - 1 - centerRow + 0.5) * sqM * latDegPerM).toFixed(6);
+      const westLng = (lng - (centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
+      const eastLng = (lng + (cols - 1 - centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
+
+      const bboxKey = `${westLng},${southLat},${eastLng},${northLat}`;
+      if (state.lastAerialBboxKey !== bboxKey) {
+        state.lastAerialBboxKey = bboxKey;
+        img.src = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=4326&size=1040,720&format=jpg&f=image`;
+      }
+    }
+
     function renderGrid() {
       if (!state.yard) return;
       const board = document.getElementById("yardGridBoard");
@@ -901,7 +1201,8 @@
       const showSun = document.getElementById("chkSunShade").checked;
       const showSat = document.getElementById("chkSatellite").checked;
 
-      board.className = `yard-grid-board season-${state.season}` + (showSat ? " satellite-underlay" : "");
+      updateAerialSatelliteUnderlay();
+      board.className = `yard-grid-board season-${state.season} z-10` + (showSat ? " satellite-underlay" : "");
       board.innerHTML = "";
 
       const plantsByCell = {};
@@ -968,14 +1269,27 @@
             div.innerHTML = `<span class="text-[10px]">⚠️</span>`;
           }
 
-          div.addEventListener("mousedown", () => {
+          div.addEventListener("mousedown", (evt) => {
             state.isMouseDown = true;
-            onCellAction(r, c, false);
+            onCellAction(r, c, false, evt);
           });
-          div.addEventListener("mouseenter", () => {
+          div.addEventListener("mouseenter", (evt) => {
+            state.hoverCell = { row: r, col: c };
             updateHoverReadout(r, c, cellPlants);
+            if (state.draggingVertexIndex !== null) {
+              const verts = ensureBorderVertices();
+              if (verts[state.draggingVertexIndex]) {
+                verts[state.draggingVertexIndex] = { row: r, col: c };
+                applyPolygonVerticesToZones(verts);
+              }
+              return;
+            }
+            if (state.interactionMode === "border" && state.borderBrush === "polygon_draw") {
+              renderSvgOverlay();
+              return;
+            }
             if (state.isMouseDown && state.interactionMode === "border") {
-              onCellAction(r, c, true);
+              onCellAction(r, c, true, evt);
             }
           });
 
@@ -984,6 +1298,34 @@
       }
 
       renderSvgOverlay();
+    }
+
+    function drawSvgTapeBadge(svg, x, y, textStr, bgColor = "#78350f", textColor = "#fef3c7") {
+      const charWidth = 2.05;
+      const w = Math.max(22, textStr.length * charWidth + 5);
+      const h = 5.8;
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", (x - w / 2).toFixed(1));
+      rect.setAttribute("y", (y - h / 2).toFixed(1));
+      rect.setAttribute("width", w.toFixed(1));
+      rect.setAttribute("height", h.toFixed(1));
+      rect.setAttribute("rx", "1.6");
+      rect.setAttribute("fill", bgColor);
+      rect.setAttribute("fill-opacity", "0.92");
+      rect.setAttribute("stroke", "#fbbf24");
+      rect.setAttribute("stroke-width", "0.35");
+      svg.appendChild(rect);
+
+      const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      txt.setAttribute("x", x.toFixed(1));
+      txt.setAttribute("y", (y + 1.2).toFixed(1));
+      txt.setAttribute("text-anchor", "middle");
+      txt.setAttribute("fill", textColor);
+      txt.setAttribute("font-size", "3.1");
+      txt.setAttribute("font-family", "JetBrains Mono, monospace");
+      txt.setAttribute("font-weight", "bold");
+      txt.textContent = textStr;
+      svg.appendChild(txt);
     }
 
     function renderSvgOverlay() {
@@ -1016,7 +1358,7 @@
             line.setAttribute("x2", nb.c * 10 + 5);
             line.setAttribute("y2", nb.r * 10 + 5);
             line.setAttribute("stroke", "#92400e");
-            line.setAttribute("stroke-width", "1.6");
+            line.setAttribute("stroke-width", "1.4");
             svg.appendChild(line);
           }
         });
@@ -1024,48 +1366,180 @@
         const post = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         post.setAttribute("cx", cx);
         post.setAttribute("cy", cy);
-        post.setAttribute("r", "1.45");
+        post.setAttribute("r", "1.2");
         post.setAttribute("fill", "#fef3c7");
         post.setAttribute("stroke", "#78350f");
-        post.setAttribute("stroke-width", "0.8");
+        post.setAttribute("stroke-width", "0.7");
         svg.appendChild(post);
       });
 
-      if (fenceCoords.length > 0) {
-        const minR = Math.min(...fenceCoords.map(x => x.r));
-        const maxR = Math.max(...fenceCoords.map(x => x.r));
-        const minC = Math.min(...fenceCoords.map(x => x.c));
-        const maxC = Math.max(...fenceCoords.map(x => x.c));
-        const widthFt = Math.round((maxC - minC + 1) * sqFeet);
-        const depthFt = Math.round((maxR - minR + 1) * sqFeet);
-        const widthM = Math.round((maxC - minC + 1) * sqMeters);
-        const depthM = Math.round((maxR - minR + 1) * sqMeters);
+      // 1b. Draw Vector Polygon Boundary, Per-Segment Tape Measure Badges & Draggable Corner Handles (P1..Pn)
+      const verts = ensureBorderVertices();
+      const isDrawingDraft = state.interactionMode === "border" && state.borderBrush === "polygon_draw";
 
-        const labelBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        const midX = ((minC + maxC + 1) * 10) / 2;
-        const topY = Math.max(1.5, minR * 10 + 0.8);
-        labelBg.setAttribute("x", midX - 38);
-        labelBg.setAttribute("y", topY);
-        labelBg.setAttribute("width", "76");
-        labelBg.setAttribute("height", "7.5");
-        labelBg.setAttribute("rx", "2");
-        labelBg.setAttribute("fill", "#78350f");
-        labelBg.setAttribute("fill-opacity", "0.9");
-        svg.appendChild(labelBg);
+      if (!isDrawingDraft && verts.length >= 3) {
+        const ptsAttr = verts.map(v => `${v.col * 10 + 5},${v.row * 10 + 5}`).join(" ");
+        const polyEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polyEl.setAttribute("points", ptsAttr);
+        polyEl.setAttribute("fill", state.interactionMode === "border" ? "rgba(245, 158, 11, 0.06)" : "none");
+        polyEl.setAttribute("stroke", "#b45309");
+        polyEl.setAttribute("stroke-width", state.interactionMode === "border" ? "1.6" : "1.1");
+        polyEl.setAttribute("stroke-dasharray", state.interactionMode === "border" ? "none" : "4,2");
+        svg.appendChild(polyEl);
 
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", midX);
-        text.setAttribute("y", topY + 5.2);
-        text.setAttribute("text-anchor", "middle");
-        text.setAttribute("fill", "#fef3c7");
-        text.setAttribute("font-size", "3.8");
-        text.setAttribute("font-family", "JetBrains Mono, monospace");
-        text.setAttribute("font-weight", "bold");
-        text.textContent = `FENCE: ${widthFt}ft × ${depthFt}ft (${widthM}m×${depthM}m)`;
-        svg.appendChild(text);
+        // Segment length tape-measure badges + Midpoint (+) insert handles
+        const n = verts.length;
+        for (let i = 0; i < n; i++) {
+          const a = verts[i];
+          const b = verts[(i + 1) % n];
+          const ax = a.col * 10 + 5;
+          const ay = a.row * 10 + 5;
+          const bx = b.col * 10 + 5;
+          const by = b.row * 10 + 5;
+          const midX = (ax + bx) / 2;
+          const midY = (ay + by) / 2;
+          const distSquares = Math.hypot(b.row - a.row, b.col - a.col);
+          const segFt = Math.round(distSquares * sqFeet);
+          const segM = Math.round(distSquares * sqMeters);
+
+          if (distSquares >= 2) {
+            drawSvgTapeBadge(svg, midX, midY - (state.interactionMode === "border" ? 3.8 : 0), `${segFt}ft (${segM}m)`);
+          }
+
+          // Interactive Midpoint (+) handle to insert a new corner on this edge when in border mode
+          if (state.interactionMode === "border" && state.borderBrush === "polygon_edit" && distSquares >= 3) {
+            const midGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            midGroup.setAttribute("class", "svg-handle-interactive");
+            midGroup.innerHTML = `
+              <circle cx="${midX.toFixed(1)}" cy="${(midY + 2.2).toFixed(1)}" r="2.6" fill="#059669" stroke="#ffffff" stroke-width="0.8">
+                <title>Click to insert a new corner vertex on this fence edge (for L-shaped or angled yards)</title>
+              </circle>
+              <text x="${midX.toFixed(1)}" y="${(midY + 3.2).toFixed(1)}" text-anchor="middle" fill="#ffffff" font-size="3.6" font-weight="bold">+</text>
+            `;
+            midGroup.addEventListener("mousedown", (e) => {
+              e.stopPropagation();
+              const newRow = Math.round((a.row + b.row) / 2);
+              const newCol = Math.round((a.col + b.col) / 2);
+              verts.splice(i + 1, 0, { row: newRow, col: newCol });
+              state.draggingVertexIndex = i + 1;
+              state.isMouseDown = true;
+              applyPolygonVerticesToZones(verts);
+              showToast(`➕ Added Corner P${i + 2}! Drag to position your L-shaped or angled boundary.`);
+            });
+            svg.appendChild(midGroup);
+          }
+        }
+
+        // Draggable Corner Vertex Handles (P1, P2, P3...)
+        if (state.interactionMode === "border" && state.borderBrush === "polygon_edit") {
+          verts.forEach((v, idx) => {
+            const vx = v.col * 10 + 5;
+            const vy = v.row * 10 + 5;
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", "svg-handle-interactive");
+            g.innerHTML = `
+              <circle cx="${vx}" cy="${vy}" r="4.2" fill="#d97706" stroke="#ffffff" stroke-width="1.1">
+                <title>Corner P${idx + 1} (${cellLabel(v.row, v.col)}) — Drag to move corner, or Alt-click to delete vertex</title>
+              </circle>
+              <text x="${vx}" y="${vy + 1.1}" text-anchor="middle" fill="#ffffff" font-size="2.9" font-family="JetBrains Mono, monospace" font-weight="bold">P${idx + 1}</text>
+            `;
+            g.addEventListener("mousedown", async (e) => {
+              e.stopPropagation();
+              if (e.altKey || e.button === 2) {
+                if (verts.length <= 3) {
+                  showToast("⚠️ A boundary polygon must have at least 3 corners.");
+                  return;
+                }
+                verts.splice(idx, 1);
+                applyPolygonVerticesToZones(verts);
+                await saveBordersToCloud();
+                showToast(`🗑️ Removed corner vertex. Boundary now has ${verts.length} corners.`);
+                return;
+              }
+              state.draggingVertexIndex = idx;
+              state.isMouseDown = true;
+            });
+            svg.appendChild(g);
+          });
+        }
       }
 
-      // 1b. Live Preview Box while dragging 'Draw Fence Box'
+      // 1c. Point-to-Point Polygon Draft + Rubber-Band Line + Live Tape Measure
+      if (isDrawingDraft) {
+        const draft = state.polygonDraftVertices;
+        if (draft.length > 0) {
+          for (let i = 0; i < draft.length - 1; i++) {
+            const a = draft[i];
+            const b = draft[i + 1];
+            const ax = a.col * 10 + 5;
+            const ay = a.row * 10 + 5;
+            const bx = b.col * 10 + 5;
+            const by = b.row * 10 + 5;
+
+            const seg = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            seg.setAttribute("x1", ax);
+            seg.setAttribute("y1", ay);
+            seg.setAttribute("x2", bx);
+            seg.setAttribute("y2", by);
+            seg.setAttribute("stroke", "#d97706");
+            seg.setAttribute("stroke-width", "1.8");
+            svg.appendChild(seg);
+
+            const dSq = Math.hypot(b.row - a.row, b.col - a.col);
+            drawSvgTapeBadge(
+              svg,
+              (ax + bx) / 2,
+              (ay + by) / 2 - 2.5,
+              `${Math.round(dSq * sqFeet)}ft (${Math.round(dSq * sqMeters)}m)`
+            );
+          }
+
+          // Live Rubber-Band Line from Last Point to Hovered Cell
+          const last = draft[draft.length - 1];
+          const hov = state.hoverCell || last;
+          const lx = last.col * 10 + 5;
+          const ly = last.row * 10 + 5;
+          const hx = hov.col * 10 + 5;
+          const hy = hov.row * 10 + 5;
+
+          const rubber = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          rubber.setAttribute("x1", lx);
+          rubber.setAttribute("y1", ly);
+          rubber.setAttribute("x2", hx);
+          rubber.setAttribute("y2", hy);
+          rubber.setAttribute("stroke", "#059669");
+          rubber.setAttribute("stroke-width", "1.6");
+          rubber.setAttribute("stroke-dasharray", "2.5,2");
+          svg.appendChild(rubber);
+
+          const liveSq = Math.hypot(hov.row - last.row, hov.col - last.col);
+          if (liveSq > 0) {
+            drawSvgTapeBadge(
+              svg,
+              (lx + hx) / 2,
+              (ly + hy) / 2 - 3.2,
+              `📏 ${Math.round(liveSq * sqFeet)}ft (${Math.round(liveSq * sqMeters)}m)`,
+              "#065f46",
+              "#ecfdf5"
+            );
+          }
+
+          // Draw Draft Corner Pins P1..Pk
+          draft.forEach((v, idx) => {
+            const vx = v.col * 10 + 5;
+            const vy = v.row * 10 + 5;
+            const pin = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            const isStart = idx === 0 && draft.length >= 3;
+            pin.innerHTML = `
+              <circle cx="${vx}" cy="${vy}" r="${isStart ? 4.6 : 3.8}" fill="${isStart ? "#059669" : "#d97706"}" stroke="#ffffff" stroke-width="1.1"></circle>
+              <text x="${vx}" y="${vy + 1.1}" text-anchor="middle" fill="#ffffff" font-size="2.8" font-family="JetBrains Mono, monospace" font-weight="bold">P${idx + 1}</text>
+            `;
+            svg.appendChild(pin);
+          });
+        }
+      }
+
+      // 1d. Live Preview Box while dragging 'Drag Rectangle Box'
       if (state.fenceBoxDragStart && state.fenceBoxDragCurrent) {
         const minR = Math.min(state.fenceBoxDragStart.row, state.fenceBoxDragCurrent.row);
         const maxR = Math.max(state.fenceBoxDragStart.row, state.fenceBoxDragCurrent.row);
@@ -1129,10 +1603,69 @@
       document.getElementById("hoverCellReadout").textContent = `${lbl} (${zone})${plantInfo}`;
     }
 
-    async function onCellAction(r, c, isDrag) {
+    async function onCellAction(r, c, isDrag, evt) {
       state.selectedCell = { row: r, col: c };
 
       if (state.interactionMode === "border") {
+        // Mode A: Point-to-Point Polygon Click-to-Draw
+        if (state.borderBrush === "polygon_draw") {
+          if (isDrag) return;
+          const draft = state.polygonDraftVertices;
+          if (draft.length >= 3) {
+            const first = draft[0];
+            if (Math.abs(first.row - r) <= 1 && Math.abs(first.col - c) <= 1) {
+              await finishPolygonDraw();
+              return;
+            }
+          }
+          // Avoid duplicate consecutive vertex
+          const prev = draft[draft.length - 1];
+          if (!prev || prev.row !== r || prev.col !== c) {
+            draft.push({ row: r, col: c });
+            updatePolygonDrawHelperText();
+            renderSvgOverlay();
+          }
+          return;
+        }
+
+        // Mode B: Drag Corner Handles & Reshape Polygon
+        if (state.borderBrush === "polygon_edit") {
+          const verts = ensureBorderVertices();
+          if (!isDrag) {
+            // Find nearest corner vertex within 1 square, or move the closest corner vertex
+            let bestIdx = -1;
+            let bestDist = 999;
+            verts.forEach((v, idx) => {
+              const d = Math.hypot(v.row - r, v.col - c);
+              if (d < bestDist) {
+                bestDist = d;
+                bestIdx = idx;
+              }
+            });
+            if (bestIdx !== -1 && bestDist <= 2.2) {
+              if (evt && evt.altKey) {
+                if (verts.length > 3) {
+                  verts.splice(bestIdx, 1);
+                  applyPolygonVerticesToZones(verts);
+                  await saveBordersToCloud();
+                  showToast(`🗑️ Removed corner vertex. Boundary now has ${verts.length} corners.`);
+                }
+                return;
+              }
+              state.draggingVertexIndex = bestIdx;
+              verts[bestIdx] = { row: r, col: c };
+              applyPolygonVerticesToZones(verts);
+            } else if (bestIdx !== -1) {
+              // Snap nearest corner to clicked square for quick corner placement
+              state.draggingVertexIndex = bestIdx;
+              verts[bestIdx] = { row: r, col: c };
+              applyPolygonVerticesToZones(verts);
+            }
+          }
+          return;
+        }
+
+        // Mode C: Drag Rectangle Fence Box
         if (state.borderBrush === "fence_box") {
           if (!isDrag) {
             state.fenceBoxDragStart = { row: r, col: c };
@@ -1142,6 +1675,7 @@
           return;
         }
 
+        // Mode D: Individual 3m Square Zone Brushes (Fence, Lawn, House, Garage, Patio, Septic, OOB)
         setCellZoneType(r, c, state.borderBrush);
         renderGrid();
         if (!isDrag) {
@@ -1190,6 +1724,7 @@
       if (resp.ok) {
         state.yard = await resp.json();
         state.hasUnsavedBorderChanges = false;
+        ensureBorderVertices();
         syncHeaderAndControls();
         renderGrid();
         await renderSelectedSquareInspector();
@@ -1198,7 +1733,7 @@
         const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         updateCloudMemoryStatus("saved", `🟢 Fence & Yard Remembered (${nowStr})`);
         if (!silent) {
-          showToast("🪵 Saved & remembered your adjusted fence & property border in Cloud Firestore!");
+          showToast("🪵 Saved & remembered your custom polygon boundary & yard in Cloud Firestore!");
         }
       }
     }
@@ -1544,6 +2079,7 @@
         const yardResp = await fetch(`/api/v1/yard/${state.yardId}`);
         state.yard = await yardResp.json();
         state.hasUnsavedBorderChanges = false;
+        ensureBorderVertices();
         await refreshSavedYardsList();
         syncHeaderAndControls();
         renderGrid();
