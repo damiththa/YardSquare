@@ -3,7 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "YardSquare — Cloud-Direct GCP 3m×3m What3Words Botanical & Yard Companion",
-    "subtitle": "Rooftop & OSM Structure/Driveway Extraction, Interactive Polygon & Structure Studio, 3×3 Sub-Squares & Root Safety",
+    "subtitle": "3-Layer Hybrid Satellite & Structure Auto-Plotter (FEMA LiDAR + OSM + NAIP/Esri), Polygon Studio & Root Safety",
     "output": "docs/architecture/yardsquare-architecture.html",
     "visual_preset": "blueprint",
     "animation": "trace",
@@ -17,9 +17,9 @@
     "views": [
       {
         "id": "address-to-parcel-border",
-        "label": "1. Address Lookup, Structure GIS & Border Studio",
+        "label": "1. Address Lookup, 3-Layer Satellite Auto-Plot & Border Studio",
         "focus": ["yard_companion_ui", "fastapi_gateway", "geo_parcel_engine", "photon_overpass_osm", "external_geo_w3w", "firestore_gcs_store"],
-        "note": "Stage 1: $0 Photon/OSM autocomplete. Stage 2: US E-911 Rooftop geocode + OSM Overpass house/garage/driveway extraction + address-keyed cloud persistence (yard_addr_<hash>)."
+        "note": "Stage 1: $0 Photon/OSM autocomplete. Stage 2: US E-911 Rooftop geocode + FEMA USA Structures LiDAR + OSM Overpass + Satellite 3m-Patch Auto-Plotter + address-keyed cloud persistence."
       },
       {
         "id": "plant-care-and-safety",
@@ -40,13 +40,13 @@
       "id": "yard_companion_ui",
       "type": "frontend",
       "label": "Yard Companion Studio",
-      "sublabel": "Polygon & Structure Drag UI",
+      "sublabel": "Satellite Underlay & Polygon UI",
       "brand": "javascript",
       "tag": "Phase 1 Web UI",
       "pos": [40, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/index.html", "line": 1, "end_line": 2132, "label": "Web-First 3m W3W grid, Polygon Builder, Drag-Box Structure Tools & URL/Storage Yard ID" }
+        { "path": "app/static/index.html", "line": 1, "end_line": 2176, "label": "Default-ON Translucent Satellite Grid, Polygon Builder, Drag-Box Structure Tools & URL/Storage Yard ID" }
       ]
     },
     {
@@ -89,7 +89,7 @@
       "size": [168, 68],
       "sources": [
         { "path": "app/services/secret_manager.py", "line": 1, "end_line": 55, "label": "GCP Secret Manager runtime loader" },
-        { "path": "app/config.py", "line": 1, "end_line": 147, "label": "Environment config & ≤9.5k/mo cap" }
+        { "path": "app/config.py", "line": 1, "end_line": 165, "label": "Environment config, FEMA/NAIP/Esri/Mapbox URLs & ≤9.5k/mo cap" }
       ]
     },
     {
@@ -111,13 +111,13 @@
       "id": "geo_parcel_engine",
       "type": "backend",
       "label": "3m Grid & Land Engine",
-      "sublabel": "Polygon Rasterizer & OSM",
+      "sublabel": "FEMA, OSM & Sat Auto-Plotter",
       "brand": "python",
       "tag": "spatial math",
       "pos": [620, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1327, "label": "Bresenham/Ray-Cast rasterizer, OSM building/driveway selector & root safety analyzer" },
+        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1818, "label": "3-Layer Hybrid (FEMA LiDAR + OSM + Satellite PNG Patch Auto-Plotter) & root safety analyzer" },
         { "path": "app/services/w3w_service.py", "line": 1, "end_line": 98, "label": "W3W v3 resolver & 402 circuit breaker" }
       ]
     },
@@ -162,8 +162,8 @@
     {
       "id": "photon_overpass_osm",
       "type": "external",
-      "label": "US E-911, Photon & OSM",
-      "sublabel": "$0 Rooftop & Building Polys",
+      "label": "FEMA, USGS NAIP & OSM",
+      "sublabel": "$0 LiDAR, Aerial & Polys",
       "tag": "0 Google quota",
       "pos": [910, 240],
       "size": [162, 68]

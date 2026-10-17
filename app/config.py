@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     PHOTON_AUTOCOMPLETE_URL: str = "https://photon.komoot.io/api/"
     GOOGLE_GEOCODE_URL: str = "https://maps.googleapis.com/maps/api/geocode/json"
     OVERPASS_API_URL: str = "https://overpass-api.de/api/interpreter"
+    FEMA_STRUCTURES_QUERY_URL: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/USA_Structures_View/FeatureServer/0/query"
+    )
+    ESRI_WORLD_IMAGERY_EXPORT_URL: str = (
+        "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
+    )
+    USGS_NAIP_EXPORT_URL: str = (
+        "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage"
+    )
+    MAPBOX_STATIC_BASE_URL: str = "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static"
     W3W_CONVERT_URL: str = "https://api.what3words.com/v3/convert-to-3wa"
     W3W_GRID_SECTION_URL: str = "https://api.what3words.com/v3/grid-section"
     PHZM_API_BASE_URL: str = "https://phzmapi.org"
@@ -95,6 +105,14 @@ class Settings(BaseSettings):
         return get_secret(
             "GOOGLE_MAPS_API_KEY",
             gcp_secret_id=f"{self.SECRET_NAME_PREFIX}-google-maps-api-key",
+            project_id=self.GCP_PROJECT_ID,
+        )
+
+    @property
+    def mapbox_access_token(self) -> str:
+        return get_secret(
+            "MAPBOX_ACCESS_TOKEN",
+            gcp_secret_id=f"{self.SECRET_NAME_PREFIX}-mapbox-access-token",
             project_id=self.GCP_PROJECT_ID,
         )
 

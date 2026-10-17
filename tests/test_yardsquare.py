@@ -10,10 +10,15 @@ Verifies:
 6. Interactive Property Border Adjustment & Option A Address-Keyed Cloud Persistence
 """
 
+import struct
+import zlib
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.geo_grid import (
+    _decode_png_to_cell_patches,
+    compute_grid_bbox_wgs84,
     euclidean_squares_distance_ft,
     format_cell_label,
     grid_cell_to_lat_lng,
@@ -236,3 +241,38 @@ def test_option_a_address_keyed_auto_fork_and_persistence() -> None:
     assert "R6-C15" in data2["zones"]["garage_shed_cells"]
 
 
+def test_satellite_png_patch_decoder_and_bbox_math() -> None:
+    west_lng, south_lat, east_lng, north_lat = compute_grid_bbox_wgs84(44.2601, -72.5754, 18, 26)
+    assert west_lng < -72.5754 < east_lng
+    assert south_lat < 44.2601 < north_lat
+
+    # Build a synthetic 26x18 RGB PNG24 image in memory (green lawn + gray roof/driveway center)
+    w, h = 26, 18
+    raw_scanlines = bytearray()
+    for r in range(h):
+        raw_scanlines.append(0)  # filter_type = 0 (None)
+        for c in range(w):
+            if 7 <= r <= 10 and 11 <= c <= 14:
+                # Gray roof / paved driveway patch
+                raw_scanlines.extend((145, 145, 145))
+            else:
+                # Vibrant green lawn patch
+                raw_scanlines.extend((55, 150, 45))
+
+    def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    idat = zlib.compress(bytes(raw_scanlines))
+    png_bytes = b"\x89PNG\r\n\x1a\n" + _png_chunk(b"IHDR", ihdr) + _png_chunk(b"IDAT", idat) + _png_chunk(b"IEND", b"")
+
+    patches = _decode_png_to_cell_patches(png_bytes, rows=18, cols=26)
+    assert patches is not None
+    assert len(patches) == 18
+    assert len(patches[0]) == 26
+    # Center roof cell R9-C13 (index 8, 12) has zero Excess Green Index and zero chroma
+    assert patches[8][12]["exg"] == 0.0
+    assert patches[8][12]["chroma"] == 0.0
+    # Lawn cell R2-C2 (index 1, 1) has high Excess Green Index (2*150 - 55 - 45 = 200)
+    assert patches[1][1]["exg"] > 150.0

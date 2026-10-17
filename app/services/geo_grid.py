@@ -4,11 +4,13 @@
 Key Capabilities & Tier-1 ($0.00 Personal Use) Cost Guardrails:
 - Each grid square is `settings.SQUARE_SIZE_METERS` (3.0m x 3.0m / ~9.84 ft x 9.84 ft).
 - Stage 1 Autocomplete: $0 local catalog + Photon (OpenStreetMap) type-ahead (0 Google Maps quota).
-- Stage 2 Rooftop Geocode: Google Maps Geocoding API hard-capped at 300/day & 9,500/month
+- Stage 2 Rooftop Geocode: US E-911 Rooftop ($0) + Google Maps Geocoding API hard-capped at 300/day & 9,500/month
   (below Google's 10,000/month free Essentials SKU limit), with automatic Photon coordinate fallback.
-- Actual Land & Building Extraction: Queries OpenStreetMap Overpass API (`way["building"]`,
-  `way["highway"]`) to project the target rooftop house, true detached garage/shed, mapped driveway,
-  and real street orientation onto the 3m x 3m grid, paired with interactive user border & structure adjustment (`ParcelZoneMap`).
+- 3-Layer Hybrid Land, Structure & Satellite Auto-Plotter:
+  1. FEMA USA Structures API ($0 ORNL LiDAR + orthoimagery building footprints, resilient to tree canopy)
+  2. OpenStreetMap Overpass API (`way["building"]`, `way["highway"]` for streets, sheds & mapped driveways)
+  3. Meter-aligned (`imageSR=3857`) Satellite Imagery Patch Auto-Plotter (Esri World Imagery / USGS NAIP Plus / Mapbox)
+     that samples each 3m x 3m square to auto-plot driveways and fallback rooflines.
 - Botanical Spatial Analyzer: Computes root-to-foundation & septic proximity conflicts,
   mature canopy overhang, sun/shade zones, and USDA Hardiness compatibility.
 """
@@ -16,6 +18,8 @@ Key Capabilities & Tier-1 ($0.00 Personal Use) Cost Guardrails:
 import hashlib
 import math
 import re
+import struct
+import zlib
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 import httpx
@@ -525,6 +529,453 @@ def _polygon_area_m2(poly: List[Tuple[float, float]]) -> float:
     return abs(shoelace) * 0.5
 
 
+def compute_grid_bbox_wgs84(
+    center_lat: float,
+    center_lng: float,
+    grid_rows: Optional[int] = None,
+    grid_cols: Optional[int] = None,
+) -> Tuple[float, float, float, float]:
+    """Return exact `(west_lng, south_lat, east_lng, north_lat)` bounding box for the 26x18 (3m x 3m) grid."""
+    settings = get_settings()
+    rows = grid_rows or settings.DEFAULT_GRID_ROWS
+    cols = grid_cols or settings.DEFAULT_GRID_COLS
+    sq_m = settings.SQUARE_SIZE_METERS
+    center_row = rows // 2
+    center_col = cols // 2
+
+    lat_deg_per_m = 1.0 / 111_320.0
+    cos_lat = max(0.2, math.cos(math.radians(center_lat)))
+    lng_deg_per_m = 1.0 / (111_320.0 * cos_lat)
+
+    north_lat = center_lat + (center_row + 0.5) * sq_m * lat_deg_per_m
+    south_lat = center_lat - (rows - 1 - center_row + 0.5) * sq_m * lat_deg_per_m
+    west_lng = center_lng - (center_col + 0.5) * sq_m * lng_deg_per_m
+    east_lng = center_lng + (cols - 1 - center_col + 0.5) * sq_m * lng_deg_per_m
+    return (round(west_lng, 6), round(south_lat, 6), round(east_lng, 6), round(north_lat, 6))
+
+
+def _query_fema_usa_structures(
+    center_lat: float,
+    center_lng: float,
+    typed_house_num: str = "",
+) -> List[Dict[str, Any]]:
+    """
+    Layer 1A ($0.00 Keyless Federal API):
+    Query FEMA / ORNL USA Structures (`USA_Structures_View/FeatureServer/0/query`) for AI + LiDAR
+    extracted building footprint polygons within ±46m of `(center_lat, center_lng)`.
+    Captures residential roofs and detached garages even under overhanging tree canopy.
+    """
+    settings = get_settings()
+    candidates: List[Dict[str, Any]] = []
+    d_lat = 46.0 / 111_320.0
+    cos_lat = max(0.2, math.cos(math.radians(center_lat)))
+    d_lng = 46.0 / (111_320.0 * cos_lat)
+    envelope = f"{center_lng - d_lng:.6f},{center_lat - d_lat:.6f},{center_lng + d_lng:.6f},{center_lat + d_lat:.6f}"
+
+    try:
+        with httpx.Client(timeout=3.2) as client:
+            resp = client.get(
+                settings.FEMA_STRUCTURES_QUERY_URL,
+                params={
+                    "geometry": envelope,
+                    "geometryType": "esriGeometryEnvelope",
+                    "inSR": "4326",
+                    "outSR": "4326",
+                    "spatialRel": "esriSpatialRelIntersects",
+                    "outFields": "BUILD_ID,PROP_ADDR,OCC_CLS,PRIM_OCC,SQFEET",
+                    "returnGeometry": "true",
+                    "f": "json",
+                },
+                headers={"User-Agent": settings.USER_AGENT_HEADER},
+            )
+            if resp.status_code == 200:
+                features = resp.json().get("features") or []
+                for feat in features:
+                    geom = feat.get("geometry") or {}
+                    rings = geom.get("rings") or []
+                    if not rings or len(rings[0]) < 3:
+                        continue
+                    # Esri rings are [lng, lat]; convert to (lat, lng)
+                    poly = [(float(pt[1]), float(pt[0])) for pt in rings[0] if len(pt) >= 2]
+                    if len(poly) < 3:
+                        continue
+                    attrs = feat.get("attributes") or {}
+                    prop_addr = str(attrs.get("PROP_ADDR") or "").strip()
+                    addr_num = (extract_leading_house_number(prop_addr) or "").lower()
+                    num_match = bool(typed_house_num and addr_num and typed_house_num == addr_num)
+
+                    c_lat = sum(p[0] for p in poly) / len(poly)
+                    c_lng = sum(p[1] for p in poly) / len(poly)
+                    centroid_dist = _lat_lng_distance_meters(center_lat, center_lng, c_lat, c_lng)
+                    vertex_dist = min(_lat_lng_distance_meters(center_lat, center_lng, p[0], p[1]) for p in poly)
+                    min_dist = min(centroid_dist, vertex_dist)
+                    contains_pt = _point_in_polygon(center_lat, center_lng, poly)
+
+                    sqfeet = float(attrs.get("SQFEET") or 0.0)
+                    area_m2 = (sqfeet * 0.092903) if sqfeet > 0 else _polygon_area_m2(poly)
+                    is_aux = area_m2 < 62.0 and not num_match
+
+                    candidates.append(
+                        {
+                            "poly": poly,
+                            "c_lat": c_lat,
+                            "c_lng": c_lng,
+                            "min_dist": min_dist,
+                            "centroid_dist": centroid_dist,
+                            "contains_pt": contains_pt,
+                            "area_m2": area_m2,
+                            "b_type": str(attrs.get("PRIM_OCC") or attrs.get("OCC_CLS") or "yes").lower(),
+                            "num_match": num_match,
+                            "is_aux": is_aux,
+                            "source": "fema_usa_structures",
+                        }
+                    )
+    except Exception:
+        pass
+    return candidates
+
+
+def _decode_png_to_cell_patches(
+    png_bytes: bytes,
+    rows: int,
+    cols: int,
+) -> Optional[List[List[Dict[str, float]]]]:
+    """
+    Pure-Python PNG (RGB/RGBA/Palette) decoder that slices an orthorectified satellite image
+    into `rows x cols` (18 x 26) 3m x 3m cell patches and computes per-square spectral metrics:
+    - `r`, `g`, `b`: Mean RGB (0..255)
+    - `luma`: Mean brightness `(R + G + B) / 3`
+    - `exg`: Excess Green Index `2*G - R - B` (vegetation/trees > 14; roofs/driveways <= 12)
+    - `chroma`: Color saturation `max(R,G,B) - min(R,G,B)` (concrete/asphalt/slate has low chroma)
+    """
+    if not png_bytes or len(png_bytes) < 33 or png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    try:
+        pos = 8
+        width = height = bit_depth = color_type = interlace = 0
+        palette: List[Tuple[int, int, int]] = []
+        idat_chunks: List[bytes] = []
+
+        while pos + 8 <= len(png_bytes):
+            length = struct.unpack(">I", png_bytes[pos : pos + 4])[0]
+            chunk_type = png_bytes[pos + 4 : pos + 8]
+            chunk_data = png_bytes[pos + 8 : pos + 8 + length]
+            pos += 12 + length
+            if chunk_type == b"IHDR" and len(chunk_data) >= 13:
+                width, height, bit_depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", chunk_data[:13])
+            elif chunk_type == b"PLTE":
+                for i in range(0, len(chunk_data) - 2, 3):
+                    palette.append((chunk_data[i], chunk_data[i + 1], chunk_data[i + 2]))
+            elif chunk_type == b"IDAT":
+                idat_chunks.append(chunk_data)
+            elif chunk_type == b"IEND":
+                break
+
+        if width < cols or height < rows or bit_depth != 8 or interlace != 0 or not idat_chunks:
+            return None
+
+        bpp = {2: 3, 6: 4, 3: 1, 0: 1}.get(color_type, 0)
+        if bpp == 0:
+            return None
+
+        raw = zlib.decompress(b"".join(idat_chunks))
+        stride = width * bpp
+        if len(raw) < height * (1 + stride):
+            return None
+
+        prev_row = bytearray(stride)
+        rgb_rows: List[List[Tuple[int, int, int]]] = []
+        idx = 0
+
+        for _ in range(height):
+            ftype = raw[idx]
+            idx += 1
+            cur = bytearray(raw[idx : idx + stride])
+            idx += stride
+
+            if ftype == 1:  # Sub
+                for x in range(bpp, stride):
+                    cur[x] = (cur[x] + cur[x - bpp]) & 0xFF
+            elif ftype == 2:  # Up
+                for x in range(stride):
+                    cur[x] = (cur[x] + prev_row[x]) & 0xFF
+            elif ftype == 3:  # Average
+                for x in range(stride):
+                    left = cur[x - bpp] if x >= bpp else 0
+                    up = prev_row[x]
+                    cur[x] = (cur[x] + ((left + up) >> 1)) & 0xFF
+            elif ftype == 4:  # Paeth
+                for x in range(stride):
+                    a = cur[x - bpp] if x >= bpp else 0
+                    b = prev_row[x]
+                    c = prev_row[x - bpp] if x >= bpp else 0
+                    p = a + b - c
+                    pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                    pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                    cur[x] = (cur[x] + pr) & 0xFF
+
+            prev_row = cur
+            row_pixels: List[Tuple[int, int, int]] = []
+            if color_type == 2:
+                for x in range(0, stride, 3):
+                    row_pixels.append((cur[x], cur[x + 1], cur[x + 2]))
+            elif color_type == 6:
+                for x in range(0, stride, 4):
+                    row_pixels.append((cur[x], cur[x + 1], cur[x + 2]))
+            elif color_type == 3 and palette:
+                for x in range(stride):
+                    p_idx = cur[x]
+                    row_pixels.append(palette[p_idx] if p_idx < len(palette) else (128, 128, 128))
+            else:
+                for x in range(stride):
+                    v = cur[x]
+                    row_pixels.append((v, v, v))
+            rgb_rows.append(row_pixels)
+
+        grid_patches: List[List[Dict[str, float]]] = []
+        for r in range(rows):
+            y0 = int(round(r * height / rows))
+            y1 = max(y0 + 1, int(round((r + 1) * height / rows)))
+            patch_row: List[Dict[str, float]] = []
+            for c in range(cols):
+                x0 = int(round(c * width / cols))
+                x1 = max(x0 + 1, int(round((c + 1) * width / cols)))
+                r_sum = g_sum = b_sum = count = 0
+                for py in range(y0, min(height, y1)):
+                    for px in range(x0, min(width, x1)):
+                        pr, pg, pb = rgb_rows[py][px]
+                        r_sum += pr
+                        g_sum += pg
+                        b_sum += pb
+                        count += 1
+                count = max(1, count)
+                rm = r_sum / count
+                gm = g_sum / count
+                bm = b_sum / count
+                luma = (rm + gm + bm) / 3.0
+                exg = (2.0 * gm) - rm - bm
+                chroma = max(rm, gm, bm) - min(rm, gm, bm)
+                patch_row.append({"r": rm, "g": gm, "b": bm, "luma": luma, "exg": exg, "chroma": chroma})
+            grid_patches.append(patch_row)
+        return grid_patches
+    except Exception:
+        return None
+
+
+def _auto_plot_from_satellite_imagery(
+    center_lat: float,
+    center_lng: float,
+    rows: int,
+    cols: int,
+    house_cells: Set[str],
+    garage_cells: Set[str],
+    driveway_cells: Set[str],
+    street_side: str,
+) -> bool:
+    """
+    Layer 2 & 3 (Meter-Aligned Satellite Imagery Fetcher + 26x18 3m-Patch Auto-Plotter):
+    Fetches a 130x90 (`imageSR=3857`) PNG24 satellite image of the exact `78m x 54m` yard from:
+      1. Mapbox Static Images API (if `MAPBOX_ACCESS_TOKEN` is configured),
+      2. Esri World Imagery Export API (`$0` keyless), or
+      3. USGS NAIP Plus ImageServer API (`$0` keyless federal fallback),
+    and uses the 26x18 cell spectral patches to:
+      - Auto-plot the actual roof footprint (`house_cells`) via region-growing if FEMA/OSM had no polygon.
+      - Auto-plot the paved driveway corridor (`driveway_cells`) connecting the garage/house to the street edge,
+        bridging 1-2 squares of overhanging tree-canopy shadow.
+    """
+    settings = get_settings()
+    west_lng, south_lat, east_lng, north_lat = compute_grid_bbox_wgs84(center_lat, center_lng, rows, cols)
+    bbox_str = f"{west_lng},{south_lat},{east_lng},{north_lat}"
+    img_w, img_h = cols * 5, rows * 5  # 130x90 (25 pixels per 3m x 3m square)
+    patches: Optional[List[List[Dict[str, float]]]] = None
+
+    with httpx.Client(timeout=3.2) as client:
+        # 1. Optional Mapbox Static Images API (if token is present)
+        mb_token = settings.mapbox_access_token
+        if mb_token:
+            try:
+                mb_url = f"{settings.MAPBOX_STATIC_BASE_URL}/[{bbox_str}]/{img_w}x{img_h}?access_token={mb_token}"
+                resp = client.get(mb_url, headers={"User-Agent": settings.USER_AGENT_HEADER})
+                if resp.status_code == 200:
+                    patches = _decode_png_to_cell_patches(resp.content, rows, cols)
+            except Exception:
+                pass
+
+        # 2. Esri World Imagery Export API ($0 keyless, imageSR=3857 conformal meter alignment)
+        if patches is None:
+            try:
+                resp = client.get(
+                    settings.ESRI_WORLD_IMAGERY_EXPORT_URL,
+                    params={
+                        "bbox": bbox_str,
+                        "bboxSR": "4326",
+                        "imageSR": "3857",
+                        "size": f"{img_w},{img_h}",
+                        "format": "png24",
+                        "f": "image",
+                    },
+                    headers={"User-Agent": settings.USER_AGENT_HEADER},
+                )
+                if resp.status_code == 200:
+                    patches = _decode_png_to_cell_patches(resp.content, rows, cols)
+            except Exception:
+                pass
+
+        # 3. USGS NAIP Plus ImageServer API ($0 keyless federal fallback)
+        if patches is None:
+            try:
+                resp = client.get(
+                    settings.USGS_NAIP_EXPORT_URL,
+                    params={
+                        "bbox": bbox_str,
+                        "bboxSR": "4326",
+                        "imageSR": "3857",
+                        "size": f"{img_w},{img_h}",
+                        "format": "png24",
+                        "f": "image",
+                    },
+                    headers={"User-Agent": settings.USER_AGENT_HEADER},
+                )
+                if resp.status_code == 200:
+                    patches = _decode_png_to_cell_patches(resp.content, rows, cols)
+            except Exception:
+                pass
+
+    if not patches:
+        return False
+
+    plotted_any = False
+
+    # A. If neither FEMA nor OSM had a building polygon, grow the roof footprint from the rooftop coordinate
+    if not house_cells:
+        c_row, c_col = rows // 2, cols // 2
+        # Pick the least-vegetated (lowest ExG) roof seed within 2 squares of center in case a branch overhangs center
+        seed_r, seed_c = c_row, c_col
+        best_exg = 999.0
+        for dr in range(-2, 3):
+            for dc in range(-2, 3):
+                rr, cc = c_row + dr, c_col + dc
+                if 2 <= rr < rows - 2 and 3 <= cc < cols - 3:
+                    p = patches[rr][cc]
+                    if p["exg"] < best_exg:
+                        best_exg = p["exg"]
+                        seed_r, seed_c = rr, cc
+
+        seed_p = patches[seed_r][seed_c]
+        visited: Set[Tuple[int, int]] = {(seed_r, seed_c)}
+        queue: List[Tuple[int, int]] = [(seed_r, seed_c)]
+        grown_coords: Set[Tuple[int, int]] = {(seed_r, seed_c)}
+
+        while queue and len(grown_coords) < 26:
+            cr, cc = queue.pop(0)
+            for nr, nc in ((cr - 1, cc), (cr + 1, cc), (cr, cc - 1), (cr, cc + 1)):
+                if (nr, nc) in visited:
+                    continue
+                if abs(nr - c_row) > 3 or abs(nc - c_col) > 4:
+                    continue
+                visited.add((nr, nc))
+                np = patches[nr][nc]
+                color_dist = math.sqrt(
+                    (np["r"] - seed_p["r"]) ** 2 + (np["g"] - seed_p["g"]) ** 2 + (np["b"] - seed_p["b"]) ** 2
+                )
+                if np["exg"] <= 15.0 and color_dist <= 44.0:
+                    grown_coords.add((nr, nc))
+                    queue.append((nr, nc))
+
+        # Ensure at least a compact 3x4 core if satellite roof is heavily tree-covered
+        if len(grown_coords) < 8:
+            for rr in range(max(2, c_row - 1), min(rows - 3, c_row + 1) + 1):
+                for cc in range(max(3, c_col - 2), min(cols - 4, c_col + 1) + 1):
+                    grown_coords.add((rr, cc))
+
+        # 1-step morphological hole fill (bridges a single roof square shaded by a tree branch)
+        filled_coords = set(grown_coords)
+        for rr in range(max(2, c_row - 3), min(rows - 3, c_row + 3) + 1):
+            for cc in range(max(3, c_col - 4), min(cols - 4, c_col + 4) + 1):
+                nbrs = sum(
+                    1
+                    for nr, nc in ((rr - 1, cc), (rr + 1, cc), (rr, cc - 1), (rr, cc + 1))
+                    if (nr, nc) in grown_coords
+                )
+                if nbrs >= 3:
+                    filled_coords.add((rr, cc))
+
+        for rr, cc in filled_coords:
+            house_cells.add(format_cell_label(rr, cc))
+        plotted_any = True
+
+    # B. Auto-plot the paved Driveway corridor connecting the Garage (or House) to the detected street edge
+    if not driveway_cells and (garage_cells or house_cells):
+        anchor_labels = garage_cells if garage_cells else house_cells
+        anchor_pts = [parse_cell_label(lbl) for lbl in anchor_labels]
+        valid_anchors = [pt for pt in anchor_pts if pt is not None]
+        if valid_anchors:
+            min_ar = min(p[0] for p in valid_anchors)
+            max_ar = max(p[0] for p in valid_anchors)
+            min_ac = min(p[1] for p in valid_anchors)
+            max_ac = max(p[1] for p in valid_anchors)
+
+            if street_side in ("south", "north"):
+                r_range = (
+                    list(range(max_ar + 1, rows - 1))
+                    if street_side == "south"
+                    else list(range(1, min_ar))
+                )
+                if r_range:
+                    # Evaluate candidate 2-column-wide driveway strips near the garage/house columns
+                    c_min_search = max(2, min_ac - 2)
+                    c_max_search = min(cols - 4, max_ac + 1)
+                    best_c = min_ac
+                    best_score = -9999.0
+                    for cand_c in range(c_min_search, c_max_search + 1):
+                        score = 0.0
+                        for rr in r_range:
+                            for cc in (cand_c, cand_c + 1):
+                                p = patches[rr][cc]
+                                # Low ExG (non-grass) + low chroma (concrete/asphalt) scores highest
+                                score += (16.0 - p["exg"]) + (24.0 - p["chroma"] * 0.5)
+                        if score > best_score:
+                            best_score = score
+                            best_c = cand_c
+                    # Plot the winning driveway strip (bridging any 1-2 square overhanging tree shadow)
+                    if best_score / max(1, len(r_range) * 2) > -4.0:
+                        for rr in r_range:
+                            for cc in (best_c, best_c + 1):
+                                lbl = format_cell_label(rr, cc)
+                                if lbl not in house_cells and lbl not in garage_cells:
+                                    driveway_cells.add(lbl)
+                        plotted_any = True
+            else:
+                c_range = (
+                    list(range(1, min_ac))
+                    if street_side == "west"
+                    else list(range(max_ac + 1, cols - 1))
+                )
+                if c_range:
+                    r_min_search = max(2, min_ar - 1)
+                    r_max_search = min(rows - 4, max_ar)
+                    best_r = min_ar
+                    best_score = -9999.0
+                    for cand_r in range(r_min_search, r_max_search + 1):
+                        score = 0.0
+                        for cc in c_range:
+                            for rr in (cand_r, cand_r + 1):
+                                p = patches[rr][cc]
+                                score += (16.0 - p["exg"]) + (24.0 - p["chroma"] * 0.5)
+                        if score > best_score:
+                            best_score = score
+                            best_r = cand_r
+                    if best_score / max(1, len(c_range) * 2) > -4.0:
+                        for cc in c_range:
+                            for rr in (best_r, best_r + 1):
+                                lbl = format_cell_label(rr, cc)
+                                if lbl not in house_cells and lbl not in garage_cells:
+                                    driveway_cells.add(lbl)
+                        plotted_any = True
+
+    return plotted_any
+
+
 def extract_actual_land_and_footprints(
     center_lat: float,
     center_lng: float,
@@ -533,14 +984,15 @@ def extract_actual_land_and_footprints(
     grid_cols: Optional[int] = None,
 ) -> ParcelZoneMap:
     """
-    Fetch actual building footprints, mapped driveways, and street orientation around `(center_lat, center_lng)`
-    via OpenStreetMap Overpass API ($0.00), and rasterize onto the 3m x 3m grid:
-    - Sorts building polygons by house-number match, rooftop containment, and distance so ONLY the target
-      home is placed in `house_roof_cells` (never neighboring homes).
-    - Only classifies a secondary polygon as `garage_shed_cells` if it is an auxiliary structure (`garage`,
-      `shed`, `detached`, `carport`, or small outbuilding < 75 m²) within 18m of the target house.
-    - Extracts mapped `service=driveway` ways and detects which edge of the lot the street actually runs on.
-    - Never invents a fake left-side garage or fake driveway for real searched addresses when OSM lacks a polygon.
+    3-Layer Hybrid Pipeline to extract actual building footprints, detached garages, driveways,
+    and street orientation around `(center_lat, center_lng)` onto the 26x18 (3m x 3m) grid:
+    - Layer 1A: FEMA / ORNL USA Structures API (`USA_Structures_View/FeatureServer/0/query`, $0 keyless)
+      for AI + LiDAR building footprints (captures roofs even under overhanging tree canopy).
+    - Layer 1B: OpenStreetMap Overpass API (`way["building"]`, `way["highway"]`) for detailed polygons,
+      small sheds, mapped `service=driveway` ways, and true street edge (`north`, `south`, `east`, `west`).
+    - Layer 2 & 3: Meter-Aligned (`imageSR=3857`) Satellite Imagery Patch Auto-Plotter (Esri World Imagery,
+      USGS NAIP Plus, or Mapbox Static Images) that samples each 3m x 3m square to auto-plot the paved
+      driveway corridor (bridging tree shadows) and grow fallback rooflines when vector polygons are absent.
     """
     settings = get_settings()
     rows = grid_rows or settings.DEFAULT_GRID_ROWS
@@ -556,8 +1008,15 @@ def extract_actual_land_and_footprints(
 
     typed_house_num = (extract_leading_house_number(street_address) or "").lower()
     street_Side = "south"  # Default street edge if no highway geometry is nearby
+    is_builtin_demo = "742 evergreen terrace" in (street_address or "").lower()
 
-    # Attempt live OpenStreetMap Overpass query for real building & highway/driveway geometry within 45m
+    # Layer 1A: Query FEMA USA Structures (ORNL LiDAR + Orthoimagery building polygons)
+    building_candidates: List[Dict[str, Any]] = []
+    if not is_builtin_demo:
+        building_candidates.extend(_query_fema_usa_structures(center_lat, center_lng, typed_house_num))
+
+    # Layer 1B: Query OpenStreetMap Overpass for building polygons + highway/driveway ways
+    highway_elements: List[Dict[str, Any]] = []
     try:
         overpass_query = (
             f"[out:json][timeout:4];"
@@ -576,8 +1035,6 @@ def extract_actual_land_and_footprints(
             if resp.status_code == 200:
                 elements = resp.json().get("elements") or []
                 aux_tags = {"garage", "garages", "shed", "detached", "carport", "outbuilding", "barn", "roof"}
-                building_candidates: List[Dict[str, Any]] = []
-                highway_elements: List[Dict[str, Any]] = []
 
                 for el in elements:
                     tags = el.get("tags") or {}
@@ -596,126 +1053,161 @@ def extract_actual_land_and_footprints(
                         num_match = bool(typed_house_num and addr_num and typed_house_num == addr_num)
                         is_aux = (b_type in aux_tags) or (area_m2 < 52.0 and not num_match)
 
-                        building_candidates.append(
-                            {
-                                "poly": poly,
-                                "c_lat": c_lat,
-                                "c_lng": c_lng,
-                                "min_dist": min_dist,
-                                "centroid_dist": centroid_dist,
-                                "contains_pt": contains_pt,
-                                "area_m2": area_m2,
-                                "b_type": b_type,
-                                "num_match": num_match,
-                                "is_aux": is_aux,
-                            }
-                        )
+                        # Deduplicate against FEMA USA Structures if centroids are within 6.5m
+                        duplicate = False
+                        for existing in building_candidates:
+                            if _lat_lng_distance_meters(existing["c_lat"], existing["c_lng"], c_lat, c_lng) <= 6.5:
+                                existing["num_match"] = existing["num_match"] or num_match
+                                existing["contains_pt"] = existing["contains_pt"] or contains_pt
+                                existing["is_aux"] = existing["is_aux"] or (b_type in aux_tags)
+                                if len(poly) > len(existing["poly"]):
+                                    existing["poly"] = poly
+                                duplicate = True
+                                break
+                        if not duplicate:
+                            building_candidates.append(
+                                {
+                                    "poly": poly,
+                                    "c_lat": c_lat,
+                                    "c_lng": c_lng,
+                                    "min_dist": min_dist,
+                                    "centroid_dist": centroid_dist,
+                                    "contains_pt": contains_pt,
+                                    "area_m2": area_m2,
+                                    "b_type": b_type,
+                                    "num_match": num_match,
+                                    "is_aux": is_aux,
+                                    "source": "osm_overpass",
+                                }
+                            )
                     elif "highway" in tags and len(geom) >= 2:
                         highway_elements.append(el)
-
-                # 1. Select the single true target house polygon (never neighbor houses)
-                main_candidates = [b for b in building_candidates if not b["is_aux"]] or building_candidates
-                main_candidates.sort(
-                    key=lambda b: (
-                        not b["num_match"],
-                        not b["contains_pt"],
-                        b["min_dist"],
-                    )
-                )
-
-                target_house = None
-                if main_candidates and (main_candidates[0]["contains_pt"] or main_candidates[0]["min_dist"] <= 26.0):
-                    target_house = main_candidates[0]
-
-                if target_house is not None:
-                    other_main_houses = [b for b in main_candidates if b is not target_house]
-                    # Select true detached garages/sheds belonging to this house (within 18m of house centroid)
-                    target_aux_polys: List[List[Tuple[float, float]]] = []
-                    for b in building_candidates:
-                        if b is target_house:
-                            continue
-                        if not b["is_aux"] and b["area_m2"] >= 75.0:
-                            continue  # Skip full-sized neighboring houses
-                        dist_to_target = _lat_lng_distance_meters(
-                            target_house["c_lat"], target_house["c_lng"], b["c_lat"], b["c_lng"]
-                        )
-                        if dist_to_target <= 18.5:
-                            closer_to_neighbor = any(
-                                _lat_lng_distance_meters(nh["c_lat"], nh["c_lng"], b["c_lat"], b["c_lng"])
-                                < dist_to_target
-                                for nh in other_main_houses
-                            )
-                            if not closer_to_neighbor:
-                                target_aux_polys.append(b["poly"])
-
-                    for r in range(rows):
-                        for c in range(cols):
-                            clat, clng = grid_cell_to_lat_lng(center_lat, center_lng, r, c, rows, cols)
-                            if _point_in_polygon(clat, clng, target_house["poly"]):
-                                house_cells.add(format_cell_label(r, c))
-                            elif any(_point_in_polygon(clat, clng, ap) for ap in target_aux_polys):
-                                garage_cells.add(format_cell_label(r, c))
-
-                    # Ensure at least the target house centroid cell is marked if polygon is narrow
-                    if not house_cells:
-                        hr, hc = lat_lng_to_grid_cell(
-                            center_lat, center_lng, target_house["c_lat"], target_house["c_lng"], rows, cols
-                        )
-                        house_cells.add(format_cell_label(hr, hc))
-
-                    footprint_source = "osm_overpass_live_building_polygon"
-
-                # 2. Extract mapped driveways and detect true street orientation from highway ways
-                street_cells_detected: List[Tuple[int, int]] = []
-                for hw in highway_elements:
-                    tags = hw.get("tags") or {}
-                    hw_type = str(tags.get("highway") or "").strip().lower()
-                    srv_type = str(tags.get("service") or "").strip().lower()
-                    geom = hw.get("geometry") or []
-                    pts = [(float(pt["lat"]), float(pt["lon"])) for pt in geom]
-
-                    if hw_type == "service" and srv_type in ("driveway", "parking_aisle", ""):
-                        # Only include driveway segments close to our property center (< 24m)
-                        min_hw_dist = min(_lat_lng_distance_meters(center_lat, center_lng, p[0], p[1]) for p in pts)
-                        if min_hw_dist <= 24.0:
-                            grid_pts = [lat_lng_to_grid_cell(center_lat, center_lng, p[0], p[1], rows, cols) for p in pts]
-                            for idx in range(len(grid_pts) - 1):
-                                r0, c0 = grid_pts[idx]
-                                r1, c1 = grid_pts[idx + 1]
-                                for lr, lc in bresenham_grid_line(r0, c0, r1, c1):
-                                    lbl = format_cell_label(lr, lc)
-                                    if lbl not in house_cells and lbl not in garage_cells:
-                                        driveway_cells.add(lbl)
-                    elif hw_type in (
-                        "residential",
-                        "tertiary",
-                        "secondary",
-                        "unclassified",
-                        "living_street",
-                        "primary",
-                        "road",
-                    ):
-                        for p_lat, p_lng in pts:
-                            if _lat_lng_distance_meters(center_lat, center_lng, p_lat, p_lng) <= 42.0:
-                                sr, sc = lat_lng_to_grid_cell(center_lat, center_lng, p_lat, p_lng, rows, cols)
-                                street_cells_detected.append((sr, sc))
-
-                if street_cells_detected:
-                    avg_sr = sum(p[0] for p in street_cells_detected) / len(street_cells_detected)
-                    avg_sc = sum(p[1] for p in street_cells_detected) / len(street_cells_detected)
-                    norm_dr = (avg_sr - (rows / 2.0)) / (rows / 2.0)
-                    norm_dc = (avg_sc - (cols / 2.0)) / (cols / 2.0)
-                    if abs(norm_dr) >= abs(norm_dc):
-                        street_Side = "south" if norm_dr >= 0 else "north"
-                    else:
-                        street_Side = "east" if norm_dc >= 0 else "west"
     except Exception:
         pass
+
+    # 1. Select the single true target house polygon (never neighbor houses)
+    if building_candidates and not is_builtin_demo:
+        main_candidates = [b for b in building_candidates if not b["is_aux"]] or building_candidates
+        main_candidates.sort(
+            key=lambda b: (
+                not b["num_match"],
+                not b["contains_pt"],
+                b["min_dist"],
+            )
+        )
+
+        target_house = None
+        if main_candidates and (main_candidates[0]["contains_pt"] or main_candidates[0]["min_dist"] <= 26.0):
+            target_house = main_candidates[0]
+
+        if target_house is not None:
+            other_main_houses = [b for b in main_candidates if b is not target_house]
+            # Select true detached garages/sheds belonging to this house (within 19m of house centroid)
+            target_aux_polys: List[List[Tuple[float, float]]] = []
+            for b in building_candidates:
+                if b is target_house:
+                    continue
+                if not b["is_aux"] and b["area_m2"] >= 75.0:
+                    continue  # Skip full-sized neighboring houses
+                dist_to_target = _lat_lng_distance_meters(
+                    target_house["c_lat"], target_house["c_lng"], b["c_lat"], b["c_lng"]
+                )
+                if dist_to_target <= 19.0:
+                    closer_to_neighbor = any(
+                        _lat_lng_distance_meters(nh["c_lat"], nh["c_lng"], b["c_lat"], b["c_lng"]) < dist_to_target
+                        for nh in other_main_houses
+                    )
+                    if not closer_to_neighbor:
+                        target_aux_polys.append(b["poly"])
+
+            for r in range(rows):
+                for c in range(cols):
+                    clat, clng = grid_cell_to_lat_lng(center_lat, center_lng, r, c, rows, cols)
+                    if _point_in_polygon(clat, clng, target_house["poly"]):
+                        house_cells.add(format_cell_label(r, c))
+                    elif any(_point_in_polygon(clat, clng, ap) for ap in target_aux_polys):
+                        garage_cells.add(format_cell_label(r, c))
+
+            if not house_cells:
+                hr, hc = lat_lng_to_grid_cell(
+                    center_lat, center_lng, target_house["c_lat"], target_house["c_lng"], rows, cols
+                )
+                house_cells.add(format_cell_label(hr, hc))
+
+            footprint_source = (
+                "fema_usa_structures_lidar_polygon"
+                if target_house.get("source") == "fema_usa_structures"
+                else "osm_overpass_live_building_polygon"
+            )
+
+    # 2. Extract mapped driveways and detect true street orientation from highway ways
+    street_cells_detected: List[Tuple[int, int]] = []
+    for hw in highway_elements:
+        tags = hw.get("tags") or {}
+        hw_type = str(tags.get("highway") or "").strip().lower()
+        srv_type = str(tags.get("service") or "").strip().lower()
+        geom = hw.get("geometry") or []
+        pts = [(float(pt["lat"]), float(pt["lon"])) for pt in geom]
+
+        if hw_type == "service" and srv_type in ("driveway", "parking_aisle", ""):
+            min_hw_dist = min(_lat_lng_distance_meters(center_lat, center_lng, p[0], p[1]) for p in pts)
+            if min_hw_dist <= 24.0:
+                grid_pts = [lat_lng_to_grid_cell(center_lat, center_lng, p[0], p[1], rows, cols) for p in pts]
+                for idx in range(len(grid_pts) - 1):
+                    r0, c0 = grid_pts[idx]
+                    r1, c1 = grid_pts[idx + 1]
+                    for lr, lc in bresenham_grid_line(r0, c0, r1, c1):
+                        lbl = format_cell_label(lr, lc)
+                        if lbl not in house_cells and lbl not in garage_cells:
+                            driveway_cells.add(lbl)
+        elif hw_type in (
+            "residential",
+            "tertiary",
+            "secondary",
+            "unclassified",
+            "living_street",
+            "primary",
+            "road",
+        ):
+            for p_lat, p_lng in pts:
+                if _lat_lng_distance_meters(center_lat, center_lng, p_lat, p_lng) <= 42.0:
+                    sr, sc = lat_lng_to_grid_cell(center_lat, center_lng, p_lat, p_lng, rows, cols)
+                    street_cells_detected.append((sr, sc))
+
+    if street_cells_detected:
+        avg_sr = sum(p[0] for p in street_cells_detected) / len(street_cells_detected)
+        avg_sc = sum(p[1] for p in street_cells_detected) / len(street_cells_detected)
+        norm_dr = (avg_sr - (rows / 2.0)) / (rows / 2.0)
+        norm_dc = (avg_sc - (cols / 2.0)) / (cols / 2.0)
+        if abs(norm_dr) >= abs(norm_dc):
+            street_Side = "south" if norm_dr >= 0 else "north"
+        else:
+            street_Side = "east" if norm_dc >= 0 else "west"
+
+    # 3. Layer 2 & 3: Run Satellite Imagery Patch Auto-Plotter for real addresses when roof or driveway is missing
+    if not is_builtin_demo and (not house_cells or not driveway_cells):
+        had_vector_house = bool(house_cells)
+        sat_plotted = _auto_plot_from_satellite_imagery(
+            center_lat=center_lat,
+            center_lng=center_lng,
+            rows=rows,
+            cols=cols,
+            house_cells=house_cells,
+            garage_cells=garage_cells,
+            driveway_cells=driveway_cells,
+            street_side=street_Side,
+        )
+        if sat_plotted:
+            if not had_vector_house:
+                footprint_source = "satellite_auto_plotted_parcel"
+            elif "fema" in footprint_source:
+                footprint_source = "fema_usa_structures_satellite_plotted"
+            else:
+                footprint_source = "osm_overpass_satellite_plotted"
 
     digest = hashlib.sha256((street_address or f"{center_lat}:{center_lng}").lower().encode("utf-8")).digest()
     lot_margin_cols = 2 + (digest[0] % 2)
     lot_margin_top = 1
-    is_builtin_demo = "742 evergreen terrace" in (street_address or "").lower()
 
     if not house_cells:
         if is_builtin_demo:
@@ -741,7 +1233,6 @@ def extract_actual_land_and_footprints(
                 for c in range(h_c_start + 1, h_c_end):
                     driveway_cells.add(format_cell_label(r, c))
         else:
-            # Real searched address without an OSM polygon: place ONLY the rooftop-centered house (never guess a fake garage/driveway)
             footprint_source = "rooftop_centered_parcel_fit"
             c_row = rows // 2
             c_col = cols // 2

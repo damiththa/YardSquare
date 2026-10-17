@@ -50,13 +50,41 @@
       background: radial-gradient(circle at 35% 30%, #f1f5f9 0%, #e2e8f0 55%, #cbd5e1 100%);
     }
     .satellite-underlay {
-      background: rgba(10, 32, 20, 0.22) !important;
+      background: rgba(10, 32, 20, 0.14) !important;
     }
     .satellite-underlay .grid-cell {
       border-color: rgba(255, 255, 255, 0.28);
     }
+    .satellite-underlay .cell-house {
+      background: rgba(154, 52, 18, 0.36) !important;
+      box-shadow: inset 0 0 0 1.5px rgba(251, 146, 60, 0.88);
+      color: #fff7ed;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    }
+    .satellite-underlay .cell-garage {
+      background: rgba(146, 64, 14, 0.36) !important;
+      box-shadow: inset 0 0 0 1.5px rgba(252, 211, 77, 0.88);
+      color: #fef3c7;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    }
+    .satellite-underlay .cell-driveway {
+      background: rgba(203, 213, 225, 0.30) !important;
+      box-shadow: inset 0 0 0 1.25px rgba(226, 232, 240, 0.85);
+      color: #f8fafc;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    }
+    .satellite-underlay .cell-fence {
+      background: rgba(120, 53, 15, 0.38) !important;
+      box-shadow: inset 0 0 0 1.5px rgba(251, 191, 36, 0.88);
+    }
+    .satellite-underlay .cell-road {
+      background: rgba(30, 41, 59, 0.44) !important;
+      border-color: rgba(148, 163, 184, 0.35);
+      color: #f1f5f9;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    }
     .satellite-underlay .cell-oob {
-      background: rgba(15, 23, 42, 0.62);
+      background: rgba(15, 23, 42, 0.42) !important;
       opacity: 0.72;
     }
     .svg-handle-interactive {
@@ -259,7 +287,7 @@
               <span>☀️ Sun/Shade</span>
             </label>
             <label class="inline-flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" id="chkSatellite" onchange="renderGrid()" class="rounded text-stone-700" />
+              <input type="checkbox" id="chkSatellite" checked onchange="renderGrid()" class="rounded text-stone-700" />
               <span>🛰️ Live Aerial Property View</span>
             </label>
           </div>
@@ -389,11 +417,13 @@
         <!-- Interactive 26 x 18 (3m x 3m) W3W Grid Canvas -->
         <div class="relative">
           <!-- Compass & Scale Bar -->
-          <div class="flex items-center justify-between text-[11px] text-stone-500 mb-1.5 px-1">
-            <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center justify-between text-[11px] text-stone-500 mb-1.5 px-1 gap-2">
+            <div class="flex flex-wrap items-center gap-3">
               <span class="font-semibold text-stone-700">🧭 North ↑</span>
               <span>Grid: <strong>26 × 18</strong> squares (78m × 54m / ~256 ft × 177 ft)</span>
-              <span>1 Square = <strong>3.0m × 3.0m (9.84 ft × 9.84 ft)</strong> W3W Cell</span>
+              <span id="footprintSourceBadge" class="px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 border border-emerald-300 font-semibold text-[10px]">
+                🛰️ FEMA + OSM + Satellite Auto-Plot
+              </span>
             </div>
             <div id="hoverCellReadout" class="font-mono-code text-xs text-emerald-800 font-semibold">
               Hover a square for ///what.three.words
@@ -789,16 +819,25 @@
       document.getElementById("usdaBadge").textContent =
         `🌡️ USDA Zone ${state.yard.usda_zone} (${state.yard.usda_min_temp_f})`;
 
-      const src = state.yard.zones?.footprint_source;
-      if (src === "user_adjusted_custom_border") {
-        document.getElementById("footprintSourceBadge").textContent = "🪵 Custom Adjusted Fence & Property Border";
-        document.getElementById("footprintSourceBadge").className = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 font-semibold";
-      } else if (src === "osm_overpass_live_building_polygon") {
-        document.getElementById("footprintSourceBadge").textContent = "🛰️ Live OSM Building Footprint + Adjustable Border";
-        document.getElementById("footprintSourceBadge").className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
-      } else {
-        document.getElementById("footprintSourceBadge").textContent = "📍 Rooftop-Centered Parcel + Adjustable Structures";
-        document.getElementById("footprintSourceBadge").className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+      const src = state.yard.zones?.footprint_source || "";
+      const srcBadge = document.getElementById("footprintSourceBadge");
+      if (srcBadge) {
+        if (src === "user_adjusted_custom_border") {
+          srcBadge.textContent = "🪵 Custom Adjusted Fence & Property Border";
+          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 font-semibold";
+        } else if (src === "fema_usa_structures_satellite_plotted" || src === "fema_usa_structures_lidar_polygon") {
+          srcBadge.textContent = "🏛️ FEMA LiDAR Roof + 🛰️ Satellite Auto-Plot";
+          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+        } else if (src === "osm_overpass_satellite_plotted" || src === "osm_overpass_live_building_polygon") {
+          srcBadge.textContent = "🗺️ OSM Footprint + 🛰️ Satellite Auto-Plot";
+          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+        } else if (src === "satellite_auto_plotted_parcel") {
+          srcBadge.textContent = "🛰️ Satellite 3m-Patch Auto-Plotted Roof & Driveway";
+          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+        } else {
+          srcBadge.textContent = "📍 Rooftop-Centered Parcel + Adjustable Structures";
+          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+        }
       }
 
       updateFenceDimensionsBadge();
@@ -1217,7 +1256,12 @@
       const bboxKey = `${westLng},${southLat},${eastLng},${northLat}`;
       if (state.lastAerialBboxKey !== bboxKey) {
         state.lastAerialBboxKey = bboxKey;
-        img.src = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=4326&size=1040,720&format=jpg&f=image`;
+        const naipFallbackUrl = `https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=1040,720&format=jpg&f=image`;
+        img.onerror = () => {
+          img.onerror = null;
+          img.src = naipFallbackUrl;
+        };
+        img.src = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=1040,720&format=jpg&f=image`;
       }
     }
 
