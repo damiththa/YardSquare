@@ -50,42 +50,42 @@
       background: radial-gradient(circle at 35% 30%, #f1f5f9 0%, #e2e8f0 55%, #cbd5e1 100%);
     }
     .satellite-underlay {
-      background: rgba(10, 32, 20, 0.14) !important;
+      background: transparent !important;
     }
     .satellite-underlay .grid-cell {
-      border-color: rgba(255, 255, 255, 0.28);
+      border-color: rgba(255, 255, 255, 0.09);
     }
     .satellite-underlay .cell-house {
-      background: rgba(154, 52, 18, 0.36) !important;
-      box-shadow: inset 0 0 0 1.5px rgba(251, 146, 60, 0.88);
+      background: rgba(154, 52, 18, 0.18) !important;
+      box-shadow: inset 0 0 0 0.8px rgba(251, 146, 60, 0.55);
       color: #fff7ed;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
     }
     .satellite-underlay .cell-garage {
-      background: rgba(146, 64, 14, 0.36) !important;
-      box-shadow: inset 0 0 0 1.5px rgba(252, 211, 77, 0.88);
+      background: rgba(146, 64, 14, 0.18) !important;
+      box-shadow: inset 0 0 0 0.8px rgba(252, 211, 77, 0.55);
       color: #fef3c7;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
     }
     .satellite-underlay .cell-driveway {
-      background: rgba(203, 213, 225, 0.30) !important;
-      box-shadow: inset 0 0 0 1.25px rgba(226, 232, 240, 0.85);
+      background: rgba(203, 213, 225, 0.15) !important;
+      box-shadow: inset 0 0 0 0.75px rgba(226, 232, 240, 0.48);
       color: #f8fafc;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
     }
     .satellite-underlay .cell-fence {
-      background: rgba(120, 53, 15, 0.38) !important;
-      box-shadow: inset 0 0 0 1.5px rgba(251, 191, 36, 0.88);
+      background: transparent !important;
+      box-shadow: none !important;
     }
     .satellite-underlay .cell-road {
-      background: rgba(30, 41, 59, 0.44) !important;
-      border-color: rgba(148, 163, 184, 0.35);
+      background: rgba(30, 41, 59, 0.18) !important;
+      border-color: rgba(255, 255, 255, 0.08);
       color: #f1f5f9;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
     }
     .satellite-underlay .cell-oob {
-      background: rgba(15, 23, 42, 0.42) !important;
-      opacity: 0.72;
+      background: rgba(15, 23, 42, 0.12) !important;
+      opacity: 1;
     }
     .svg-handle-interactive {
       pointer-events: all;
@@ -432,7 +432,7 @@
 
           <!-- The Grid Board + Live Aerial Underlay + SVG Polygon/Canopy Overlay -->
           <div id="gridWrapper" class="relative rounded-xl overflow-hidden shadow-md border border-emerald-950/20">
-            <img id="aerialUnderlayImg" alt="" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none z-0" />
+            <img id="aerialUnderlayImg" alt="" style="filter: contrast(1.07) saturate(1.06);" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none z-0" />
             <div id="yardGridBoard" class="yard-grid-board season-summer z-10"></div>
             <svg id="yardSvgOverlay" viewBox="0 0 260 180" class="absolute inset-0 w-full h-full pointer-events-none z-20"></svg>
           </div>
@@ -1255,10 +1255,17 @@
       const westLng = (lng - (centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
       const eastLng = (lng + (cols - 1 - centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
 
-      // Compute Web Mercator (EPSG:3857) pixel dimensions at Zoom Level 19 (~0.305m/px)
-      // so Esri World Imagery /export never overshoots into missing Level 21 tiles (HTTP 500)
+      // Progressive Ultra-HD Web Mercator (EPSG:3857) resolution cascade (lossless PNG24):
+      // - Level 21 (~7.5cm/px, 3-inch municipal/suburban aerial orthoimagery, ~1360x942 px)
+      // - Level 20 (~15cm/px, 6-inch aerial orthoimagery, ~680x471 px)
+      // - Level 19 (~30cm/px, 12-inch satellite/aerial imagery, ~356x246 px)
+      // - Level 18 (~60cm/px global fallback, 182x126 px)
       const mercWidthM = (cols * sqM) / cosLat;
       const mercHeightM = (rows * sqM) / cosLat;
+      const w21 = Math.max(720, Math.min(1560, Math.floor(mercWidthM / 0.0765)));
+      const h21 = Math.max(500, Math.min(1080, Math.floor(mercHeightM / 0.0765)));
+      const w20 = Math.max(364, Math.min(1040, Math.floor(mercWidthM / 0.153)));
+      const h20 = Math.max(252, Math.min(720, Math.floor(mercHeightM / 0.153)));
       const w19 = Math.max(182, Math.min(680, Math.floor(mercWidthM / 0.305)));
       const h19 = Math.max(126, Math.min(470, Math.floor(mercHeightM / 0.305)));
 
@@ -1268,8 +1275,18 @@
         state.aerialImageLoaded = false;
         img.classList.add("hidden");
 
-        const esriLevel18Url = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=182,126&format=jpg&f=image`;
-        const naipFallbackUrl = `https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=260,180&format=jpg&f=image`;
+        const baseExport = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&format=png24&f=image`;
+        const url21 = `${baseExport}&size=${w21},${h21}`;
+        const url20 = `${baseExport}&size=${w20},${h20}`;
+        const url19 = `${baseExport}&size=${w19},${h19}`;
+        const url18 = `${baseExport}&size=182,126`;
+        const naipUrl = `https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=520,360&format=jpg&f=image`;
+
+        const isMontpelierDemo = Math.abs(lat - 44.2601) < 0.002 && Math.abs(lng - (-72.5754)) < 0.002;
+        const candidateUrls = isMontpelierDemo
+          ? [url19, url18, naipUrl]
+          : [url21, url20, url19, url18, naipUrl];
+        let attemptIdx = 0;
 
         img.onload = () => {
           state.aerialImageLoaded = true;
@@ -1279,13 +1296,14 @@
           }
         };
         img.onerror = () => {
-          img.onerror = () => {
+          attemptIdx += 1;
+          if (attemptIdx < candidateUrls.length) {
+            img.src = candidateUrls[attemptIdx];
+          } else {
             img.onerror = null;
-            img.src = naipFallbackUrl;
-          };
-          img.src = esriLevel18Url;
+          }
         };
-        img.src = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=${w19},${h19}&format=jpg&f=image`;
+        img.src = candidateUrls[0];
       } else if (state.aerialImageLoaded) {
         img.classList.remove("hidden");
       }
@@ -1444,59 +1462,60 @@
       if (!state.yard) return;
 
       const showCanopy = document.getElementById("chkCanopy").checked;
+      const showSat = document.getElementById("chkSatellite").checked;
+      const isBorderMode = state.interactionMode === "border";
       const sqFeet = state.yard.square_size_feet || 9.8425;
       const sqMeters = state.yard.square_size_meters || 3.0;
 
-      // 1. Draw Connected Cedar Fence Rails & Posts across all fence_border_cells
+      // 1. Only draw discrete cell fence rails/posts when satellite view is OFF
+      // (When satellite view is ON, the thin vector polygon line below keeps the aerial photo unobstructed)
       const z = state.yard.zones || {};
-      const fenceCoords = (z.fence_border_cells || []).map(parseCellCoords).filter(Boolean);
-      const fenceSet = new Set(fenceCoords.map(pt => `${pt.r}:${pt.c}`));
+      if (!showSat) {
+        const fenceCoords = (z.fence_border_cells || []).map(parseCellCoords).filter(Boolean);
+        const fenceSet = new Set(fenceCoords.map(pt => `${pt.r}:${pt.c}`));
 
-      fenceCoords.forEach(pt => {
-        const cx = pt.c * 10 + 5;
-        const cy = pt.r * 10 + 5;
-        const neighbors = [
-          { r: pt.r, c: pt.c + 1 },
-          { r: pt.r + 1, c: pt.c },
-        ];
-        neighbors.forEach(nb => {
-          if (fenceSet.has(`${nb.r}:${nb.c}`)) {
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", cx);
-            line.setAttribute("y1", cy);
-            line.setAttribute("x2", nb.c * 10 + 5);
-            line.setAttribute("y2", nb.r * 10 + 5);
-            line.setAttribute("stroke", "#92400e");
-            line.setAttribute("stroke-width", "1.4");
-            svg.appendChild(line);
-          }
+        fenceCoords.forEach(pt => {
+          const cx = pt.c * 10 + 5;
+          const cy = pt.r * 10 + 5;
+          const neighbors = [
+            { r: pt.r, c: pt.c + 1 },
+            { r: pt.r + 1, c: pt.c },
+          ];
+          neighbors.forEach(nb => {
+            if (fenceSet.has(`${nb.r}:${nb.c}`)) {
+              const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+              line.setAttribute("x1", cx);
+              line.setAttribute("y1", cy);
+              line.setAttribute("x2", nb.c * 10 + 5);
+              line.setAttribute("y2", nb.r * 10 + 5);
+              line.setAttribute("stroke", "rgba(146, 64, 14, 0.55)");
+              line.setAttribute("stroke-width", "0.65");
+              svg.appendChild(line);
+            }
+          });
         });
+      }
 
-        const post = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        post.setAttribute("cx", cx);
-        post.setAttribute("cy", cy);
-        post.setAttribute("r", "1.2");
-        post.setAttribute("fill", "#fef3c7");
-        post.setAttribute("stroke", "#78350f");
-        post.setAttribute("stroke-width", "0.7");
-        svg.appendChild(post);
-      });
-
-      // 1b. Draw Vector Polygon Boundary, Per-Segment Tape Measure Badges & Draggable Corner Handles (P1..Pn)
+      // 1b. Draw Subtle Vector Polygon Boundary, Per-Segment Tape Measure Badges (in Border Mode) & Corner Handles
       const verts = ensureBorderVertices();
-      const isDrawingDraft = state.interactionMode === "border" && state.borderBrush === "polygon_draw";
+      const isDrawingDraft = isBorderMode && state.borderBrush === "polygon_draw";
 
       if (!isDrawingDraft && verts.length >= 3) {
         const ptsAttr = verts.map(v => `${v.col * 10 + 5},${v.row * 10 + 5}`).join(" ");
         const polyEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
         polyEl.setAttribute("points", ptsAttr);
-        polyEl.setAttribute("fill", state.interactionMode === "border" ? "rgba(245, 158, 11, 0.06)" : "none");
-        polyEl.setAttribute("stroke", "#b45309");
-        polyEl.setAttribute("stroke-width", state.interactionMode === "border" ? "1.6" : "1.1");
-        polyEl.setAttribute("stroke-dasharray", state.interactionMode === "border" ? "none" : "4,2");
+        polyEl.setAttribute("fill", isBorderMode ? "rgba(245, 158, 11, 0.04)" : "none");
+        polyEl.setAttribute(
+          "stroke",
+          showSat
+            ? (isBorderMode ? "rgba(251, 191, 36, 0.88)" : "rgba(253, 224, 71, 0.62)")
+            : (isBorderMode ? "#b45309" : "rgba(180, 83, 9, 0.65)")
+        );
+        polyEl.setAttribute("stroke-width", isBorderMode ? "0.95" : "0.55");
+        polyEl.setAttribute("stroke-dasharray", isBorderMode ? "none" : "2.5,2");
         svg.appendChild(polyEl);
 
-        // Segment length tape-measure badges + Midpoint (+) insert handles
+        // Segment length tape-measure badges (only shown in Border Edit mode so aerial view stays clean) + Midpoint (+) handles
         const n = verts.length;
         for (let i = 0; i < n; i++) {
           const a = verts[i];
@@ -1511,8 +1530,8 @@
           const segFt = Math.round(distSquares * sqFeet);
           const segM = Math.round(distSquares * sqMeters);
 
-          if (distSquares >= 2) {
-            drawSvgTapeBadge(svg, midX, midY - (state.interactionMode === "border" ? 3.8 : 0), `${segFt}ft (${segM}m)`);
+          if (isBorderMode && distSquares >= 2) {
+            drawSvgTapeBadge(svg, midX, midY - 3.8, `${segFt}ft (${segM}m)`);
           }
 
           // Interactive Midpoint (+) handle to insert a new corner on this edge when in border mode
