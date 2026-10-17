@@ -421,7 +421,7 @@
             <div class="flex flex-wrap items-center gap-3">
               <span class="font-semibold text-stone-700">🧭 North ↑</span>
               <span>Grid: <strong>26 × 18</strong> squares (78m × 54m / ~256 ft × 177 ft)</span>
-              <span id="footprintSourceBadge" class="px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 border border-emerald-300 font-semibold text-[10px]">
+              <span id="gridFootprintSourceBadge" class="px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 border border-emerald-300 font-semibold text-[10px]">
                 🛰️ FEMA + OSM + Satellite Auto-Plot
               </span>
             </div>
@@ -432,7 +432,7 @@
 
           <!-- The Grid Board + Live Aerial Underlay + SVG Polygon/Canopy Overlay -->
           <div id="gridWrapper" class="relative rounded-xl overflow-hidden shadow-md border border-emerald-950/20">
-            <img id="aerialUnderlayImg" alt="Live Property Aerial Satellite Underlay" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none z-0" />
+            <img id="aerialUnderlayImg" alt="" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none z-0" />
             <div id="yardGridBoard" class="yard-grid-board season-summer z-10"></div>
             <svg id="yardSvgOverlay" viewBox="0 0 260 180" class="absolute inset-0 w-full h-full pointer-events-none z-20"></svg>
           </div>
@@ -820,25 +820,25 @@
         `🌡️ USDA Zone ${state.yard.usda_zone} (${state.yard.usda_min_temp_f})`;
 
       const src = state.yard.zones?.footprint_source || "";
-      const srcBadge = document.getElementById("footprintSourceBadge");
-      if (srcBadge) {
-        if (src === "user_adjusted_custom_border") {
-          srcBadge.textContent = "🪵 Custom Adjusted Fence & Property Border";
-          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 font-semibold";
-        } else if (src === "fema_usa_structures_satellite_plotted" || src === "fema_usa_structures_lidar_polygon") {
-          srcBadge.textContent = "🏛️ FEMA LiDAR Roof + 🛰️ Satellite Auto-Plot";
-          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
-        } else if (src === "osm_overpass_satellite_plotted" || src === "osm_overpass_live_building_polygon") {
-          srcBadge.textContent = "🗺️ OSM Footprint + 🛰️ Satellite Auto-Plot";
-          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
-        } else if (src === "satellite_auto_plotted_parcel") {
-          srcBadge.textContent = "🛰️ Satellite 3m-Patch Auto-Plotted Roof & Driveway";
-          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
-        } else {
-          srcBadge.textContent = "📍 Rooftop-Centered Parcel + Adjustable Structures";
-          srcBadge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
-        }
+      let badgeText = "📍 Rooftop-Centered Parcel + Adjustable Structures";
+      let badgeClass = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+      if (src === "user_adjusted_custom_border") {
+        badgeText = "🪵 Custom Adjusted Fence & Property Border";
+        badgeClass = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 font-semibold";
+      } else if (src === "fema_usa_structures_satellite_plotted" || src === "fema_usa_structures_lidar_polygon") {
+        badgeText = "🏛️ FEMA LiDAR Roof + 🛰️ Satellite Auto-Plot";
+      } else if (src === "osm_overpass_satellite_plotted" || src === "osm_overpass_live_building_polygon") {
+        badgeText = "🗺️ OSM Footprint + 🛰️ Satellite Auto-Plot";
+      } else if (src === "satellite_auto_plotted_parcel") {
+        badgeText = "🛰️ Satellite 3m-Patch Auto-Plotted Roof & Driveway";
       }
+      ["footprintSourceBadge", "gridFootprintSourceBadge"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.textContent = badgeText;
+          el.className = badgeClass;
+        }
+      });
 
       updateFenceDimensionsBadge();
       updateCloudMemoryStatus("saved");
@@ -1229,13 +1229,15 @@
 
     function updateAerialSatelliteUnderlay() {
       const img = document.getElementById("aerialUnderlayImg");
+      const board = document.getElementById("yardGridBoard");
       if (!img || !state.yard) return;
       const showSat = document.getElementById("chkSatellite").checked;
       if (!showSat) {
         img.classList.add("hidden");
+        if (board) board.classList.remove("satellite-underlay");
         return;
       }
-      img.classList.remove("hidden");
+
       const lat = state.yard.parcel_center_lat || 44.2601;
       const lng = state.yard.parcel_center_lng || -72.5754;
       const rows = state.yard.grid_rows || 18;
@@ -1253,15 +1255,39 @@
       const westLng = (lng - (centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
       const eastLng = (lng + (cols - 1 - centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
 
+      // Compute Web Mercator (EPSG:3857) pixel dimensions at Zoom Level 19 (~0.305m/px)
+      // so Esri World Imagery /export never overshoots into missing Level 21 tiles (HTTP 500)
+      const mercWidthM = (cols * sqM) / cosLat;
+      const mercHeightM = (rows * sqM) / cosLat;
+      const w19 = Math.max(182, Math.min(680, Math.floor(mercWidthM / 0.305)));
+      const h19 = Math.max(126, Math.min(470, Math.floor(mercHeightM / 0.305)));
+
       const bboxKey = `${westLng},${southLat},${eastLng},${northLat}`;
       if (state.lastAerialBboxKey !== bboxKey) {
         state.lastAerialBboxKey = bboxKey;
-        const naipFallbackUrl = `https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=1040,720&format=jpg&f=image`;
-        img.onerror = () => {
-          img.onerror = null;
-          img.src = naipFallbackUrl;
+        state.aerialImageLoaded = false;
+        img.classList.add("hidden");
+
+        const esriLevel18Url = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=182,126&format=jpg&f=image`;
+        const naipFallbackUrl = `https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=260,180&format=jpg&f=image`;
+
+        img.onload = () => {
+          state.aerialImageLoaded = true;
+          if (document.getElementById("chkSatellite")?.checked) {
+            img.classList.remove("hidden");
+            document.getElementById("yardGridBoard")?.classList.add("satellite-underlay");
+          }
         };
-        img.src = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=1040,720&format=jpg&f=image`;
+        img.onerror = () => {
+          img.onerror = () => {
+            img.onerror = null;
+            img.src = naipFallbackUrl;
+          };
+          img.src = esriLevel18Url;
+        };
+        img.src = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bboxKey}&bboxSR=4326&imageSR=3857&size=${w19},${h19}&format=jpg&f=image`;
+      } else if (state.aerialImageLoaded) {
+        img.classList.remove("hidden");
       }
     }
 
@@ -1291,7 +1317,8 @@
       const showSat = document.getElementById("chkSatellite").checked;
 
       updateAerialSatelliteUnderlay();
-      board.className = `yard-grid-board season-${state.season} z-10` + (showSat ? " satellite-underlay" : "");
+      const satReady = showSat && Boolean(state.aerialImageLoaded);
+      board.className = `yard-grid-board season-${state.season} z-10` + (satReady ? " satellite-underlay" : "");
       board.innerHTML = "";
 
       const plantsByCell = {};
