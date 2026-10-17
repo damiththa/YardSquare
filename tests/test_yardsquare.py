@@ -212,7 +212,7 @@ def test_option_a_address_keyed_auto_fork_and_persistence() -> None:
 
     # Save a custom fence + custom garage box on the forked address yard
     zones = data1["zones"]
-    zones["garage_roof_cells"] = ["R6-C15", "R6-C16", "R7-C15", "R7-C16"]
+    zones["garage_shed_cells"] = ["R6-C15", "R6-C16", "R7-C15", "R7-C16"]
     save_resp = client.put(
         f"/api/v1/yard/{forked_id}/borders",
         json={"zones": zones, "yard_name": "Custom DC Property"},
@@ -233,6 +233,6 @@ def test_option_a_address_keyed_auto_fork_and_persistence() -> None:
     data2 = geo2.json()
     assert data2["yard_id"] == forked_id
     assert data2["remembered_custom_border"] is True
-    assert "R6-C15" in data2["zones"]["garage_roof_cells"]
+    assert "R6-C15" in data2["zones"]["garage_shed_cells"]
 
 
