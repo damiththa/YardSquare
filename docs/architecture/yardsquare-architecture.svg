@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 565" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="blueprint" data-theme="dark" data-quality-profile="showcase" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
         <title id="archify-diagram-title">YardSquare — Cloud-Direct GCP 3m×3m What3Words Botanical &amp; Yard Companion</title>
-        <desc id="archify-diagram-description">Actual Land &amp; Building Footprint Extraction, Interactive Border Brush, 3×3 Sub-Squares, Hose Reach &amp; Root Safety</desc>
+        <desc id="archify-diagram-description">Rooftop &amp; OSM Structure/Driveway Extraction, Interactive Polygon &amp; Structure Studio, 3×3 Sub-Squares &amp; Root Safety</desc>
         <style>
 
   svg {
@@ -111,21 +111,21 @@
         <rect width="100%" height="100%" fill="#030816" />
         <rect width="100%" height="100%" fill="url(#grid)" />
         <text x="40" y="34" class="t-primary" font-size="15" font-weight="700">YardSquare — Cloud-Direct GCP 3m×3m What3Words Botanical &amp; Yard Companion</text>
-        <text x="40" y="52" class="t-muted" font-size="9.5">Actual Land &amp; Building Footprint Extraction, Interactive Border Brush, 3×3 Sub-Squares, Hose Reach &amp; Root Safety</text>
+        <text x="40" y="52" class="t-muted" font-size="9.5">Rooftop &amp; OSM Structure/Driveway Extraction, Interactive Polygon &amp; Structure Studio, 3×3 Sub-Squares &amp; Root Safety</text>
 
         <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)" x="304" y="69" width="510" height="404" rx="12" class="c-region" stroke-width="1"/>
         <path data-edge-from="yard_companion_ui" data-edge-to="fastapi_gateway" data-edge-label="HTTPS / borders &amp; plants" data-edge-key="0" data-edge-id="resident-to-gateway" data-composition-points="208,129;269,129;269,258;330,258" d="M 208 129 L 269 129 L 269 258 L 330 258" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="mobile_walk_pwa" data-edge-to="fastapi_gateway" data-edge-label="HTTPS / GPS &amp; 1-tap care" data-edge-key="1" data-edge-id="driver-to-gateway" data-composition-points="208,274;330,274" d="M 208 274 L 330 274" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="github_cicd" data-edge-to="fastapi_gateway" data-edge-label="Cloud Build deploy" data-edge-key="2" data-edge-id="cicd-to-gateway" data-composition-points="208,419;414,419;414,308" d="M 208 419 L 414 419 L 414 308" class="a-dashed" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="secret_quota_guard" data-edge-to="fastapi_gateway" data-edge-label="Secret Mgr bindings" data-edge-key="3" data-edge-id="secrets-to-gateway" data-composition-points="414,163;414,240" d="M 414 163 L 414 240" class="a-security" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="fastapi_gateway" data-edge-to="geo_parcel_engine" data-edge-label="3m grid, border &amp; hose" data-edge-key="4" data-edge-id="gateway-to-geo" data-composition-points="498,258;559,258;559,129;620,129" d="M 498 258 L 559 258 L 559 129 L 620 129" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="fastapi_gateway" data-edge-to="geo_parcel_engine" data-edge-label="3m grid, border &amp; safety" data-edge-key="4" data-edge-id="gateway-to-geo" data-composition-points="498,258;559,258;559,129;620,129" d="M 498 258 L 559 258 L 559 129 L 620 129" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="fastapi_gateway" data-edge-to="firestore_gcs_store" data-edge-label="dev_*/prod_* yards" data-edge-key="5" data-edge-id="gateway-to-store" data-composition-points="498,274;620,274" d="M 498 274 L 620 274" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="fastapi_gateway" data-edge-to="botanical_catalog_engine" data-edge-label="species &amp; seasonal data" data-edge-key="6" data-edge-id="gateway-to-vendor" data-composition-points="498,290;559,290;559,419;620,419" d="M 498 290 L 559 290 L 559 419 L 620 419" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="geo_parcel_engine" data-edge-to="external_geo_w3w" data-edge-label="Stage 2 rooftop &amp; 3WA" data-edge-key="7" data-edge-id="geo-to-external" data-composition-points="788,129;910,129" d="M 788 129 L 910 129" class="a-dashed" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="geo_parcel_engine" data-edge-to="photon_overpass_osm" data-edge-label="Stage 1 &amp; OSM buildings ($0)" data-edge-key="8" data-edge-id="geo-to-photon" data-composition-points="788,129;849,129;849,274;910,274" d="M 788 129 L 849 129 L 849 274 L 910 274" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="botanical_catalog_engine" data-edge-to="phzm_usda_climate" data-edge-label="USDA zone compatibility" data-edge-key="9" data-edge-id="geo-to-phzm" data-composition-points="788,419;910,419" d="M 788 419 L 910 419" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <g id="node-yard_companion_ui" data-node-id="yard_companion_ui" data-node-label="Yard Companion Studio" tabindex="0" role="button" aria-label="Focus Yard Companion Studio, Polygon &amp; Corner Handle UI, Architecture component, Phase 1 Web UI" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Polygon &amp; Corner Handle UI" data-node-tag="Phase 1 Web UI" data-node-context="Architecture component">
-          <title>Yard Companion Studio · Polygon &amp; Corner Handle UI · Architecture component · Phase 1 Web UI</title>
+        <g id="node-yard_companion_ui" data-node-id="yard_companion_ui" data-node-label="Yard Companion Studio" tabindex="0" role="button" aria-label="Focus Yard Companion Studio, Polygon &amp; Structure Drag UI, Architecture component, Phase 1 Web UI" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Polygon &amp; Structure Drag UI" data-node-tag="Phase 1 Web UI" data-node-context="Architecture component">
+          <title>Yard Companion Studio · Polygon &amp; Structure Drag UI · Architecture component · Phase 1 Web UI</title>
           <rect x="40" y="95" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="40" y="95" width="168" height="68" rx="6" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 101) scale(0.6875)">
@@ -139,7 +139,7 @@
             <text x="16" y="9.5">1 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="124.0" y="128.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Yard Companion Studio</text>
-        <text data-detail="context" x="124.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">Polygon &amp; Corner Handle UI</text>
+        <text data-detail="context" x="124.0" y="142.0" class="t-muted" font-size="8.5" text-anchor="middle">Polygon &amp; Structure Drag UI</text>
         <text data-detail="fine" x="124.0" y="156" class="t-frontend" font-size="7.0" text-anchor="middle">Phase 1 Web UI</text>
         </g>
 
@@ -230,8 +230,8 @@
         <text data-detail="fine" x="704.0" y="156" class="t-backend" font-size="7.0" text-anchor="middle">spatial math</text>
         </g>
 
-        <g id="node-firestore_gcs_store" data-node-id="firestore_gcs_store" data-node-label="Firestore &amp; GCS Media" tabindex="0" role="button" aria-label="Focus Firestore &amp; GCS Media, Remembered fences &amp; yards, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), nam5 store" aria-pressed="false" data-node-kind="database" data-node-sublabel="Remembered fences &amp; yards" data-node-tag="nam5 store" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
-          <title>Firestore &amp; GCS Media · Remembered fences &amp; yards · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · nam5 store</title>
+        <g id="node-firestore_gcs_store" data-node-id="firestore_gcs_store" data-node-label="Firestore &amp; GCS Media" tabindex="0" role="button" aria-label="Focus Firestore &amp; GCS Media, Address-Keyed Cloud Yards, GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage), nam5 store" aria-pressed="false" data-node-kind="database" data-node-sublabel="Address-Keyed Cloud Yards" data-node-tag="nam5 store" data-node-context="GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage)">
+          <title>Firestore &amp; GCS Media · Address-Keyed Cloud Yards · GCP Project: yardsquare (Cloud Run us-central1 + Firestore nam5 + Cloud Storage) · nam5 store</title>
           <rect x="620" y="240" width="168" height="68" rx="6" class="c-mask"/>
           <rect x="620" y="240" width="168" height="68" rx="6" class="c-database" data-animate="node" style="--step:6" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(626 246) scale(0.6875)">
@@ -243,7 +243,7 @@
             <text x="16" y="9.5">2 SRC</text>
           </g>
           <text data-node-label="" data-detail-anchor="" x="704.0" y="273.0" class="t-primary" font-size="10.5" font-weight="600" text-anchor="middle">Firestore &amp; GCS Media</text>
-        <text data-detail="context" x="704.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">Remembered fences &amp; yards</text>
+        <text data-detail="context" x="704.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">Address-Keyed Cloud Yards</text>
         <text data-detail="fine" x="704.0" y="301" class="t-database" font-size="7.0" text-anchor="middle">nam5 store</text>
         </g>
 
@@ -276,8 +276,8 @@
         <text data-detail="fine" x="991.0" y="156" class="t-external" font-size="7.0" text-anchor="middle">≤9.5k/mo cap</text>
         </g>
 
-        <g id="node-photon_overpass_osm" data-node-id="photon_overpass_osm" data-node-label="US E-911, Photon &amp; OSM" tabindex="0" role="button" aria-label="Focus US E-911, Photon &amp; OSM, $0 Suggest &amp; Building Polys, Architecture component, 0 Google quota" aria-pressed="false" data-node-kind="external" data-node-sublabel="$0 Suggest &amp; Building Polys" data-node-tag="0 Google quota" data-node-context="Architecture component">
-          <title>US E-911, Photon &amp; OSM · $0 Suggest &amp; Building Polys · Architecture component · 0 Google quota</title>
+        <g id="node-photon_overpass_osm" data-node-id="photon_overpass_osm" data-node-label="US E-911, Photon &amp; OSM" tabindex="0" role="button" aria-label="Focus US E-911, Photon &amp; OSM, $0 Rooftop &amp; Building Polys, Architecture component, 0 Google quota" aria-pressed="false" data-node-kind="external" data-node-sublabel="$0 Rooftop &amp; Building Polys" data-node-tag="0 Google quota" data-node-context="Architecture component">
+          <title>US E-911, Photon &amp; OSM · $0 Rooftop &amp; Building Polys · Architecture component · 0 Google quota</title>
           <rect x="910" y="240" width="162" height="68" rx="6" class="c-mask"/>
           <rect x="910" y="240" width="162" height="68" rx="6" class="c-external" data-animate="node" style="--step:9" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(916 246) scale(0.6875)">
@@ -285,7 +285,7 @@
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="991.0" y="273.0" class="t-primary" font-size="9.8" font-weight="600" text-anchor="middle">US E-911, Photon &amp; OSM</text>
-        <text data-detail="context" x="991.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">$0 Suggest &amp; Building Polys</text>
+        <text data-detail="context" x="991.0" y="287.0" class="t-muted" font-size="8.5" text-anchor="middle">$0 Rooftop &amp; Building Polys</text>
         <text data-detail="fine" x="991.0" y="301" class="t-external" font-size="7.0" text-anchor="middle">0 Google quota</text>
         </g>
 
@@ -317,9 +317,9 @@
           <rect x="362.4" y="194.5" width="103.2" height="14" rx="3" class="c-mask"/>
           <text x="414.0" y="204.5" class="t-edge-security" font-size="8" text-anchor="middle">Secret Mgr bindings</text>
         </g>
-        <g data-detail="context" data-edge-from="fastapi_gateway" data-edge-to="geo_parcel_engine" data-edge-label="3m grid, border &amp; hose" data-edge-key="4" data-edge-id="gateway-to-geo">
-          <rect x="469.7" y="242.0" width="117.6" height="14" rx="3" class="c-mask"/>
-          <text x="528.5" y="252.0" class="t-edge-emphasis" font-size="8" text-anchor="middle">3m grid, border &amp; hose</text>
+        <g data-detail="context" data-edge-from="fastapi_gateway" data-edge-to="geo_parcel_engine" data-edge-label="3m grid, border &amp; safety" data-edge-key="4" data-edge-id="gateway-to-geo">
+          <rect x="464.9" y="242.0" width="127.2" height="14" rx="3" class="c-mask"/>
+          <text x="528.5" y="252.0" class="t-edge-emphasis" font-size="8" text-anchor="middle">3m grid, border &amp; safety</text>
         </g>
         <g data-detail="context" data-edge-from="fastapi_gateway" data-edge-to="firestore_gcs_store" data-edge-label="dev_*/prod_* yards" data-edge-key="5" data-edge-id="gateway-to-store">
           <rect x="509.8" y="258.0" width="98.4" height="14" rx="3" class="c-mask"/>

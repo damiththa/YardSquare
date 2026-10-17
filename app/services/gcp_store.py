@@ -11,10 +11,12 @@ are not mounted locally (e.g., during automated CI tests or local offline previe
 transparently mirrors the Firestore document collections in memory.
 """
 
+import hashlib
+import re
 import uuid
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.config import get_settings
 from app.models import (
@@ -214,10 +216,6 @@ class GCPDataStore:
         usda_zone, usda_temp = resolve_usda_hardiness_zone(lat, address)
         zones = extract_actual_land_and_footprints(lat, lng, street_address=address)
 
-        spigot_s1 = build_grid_square_coord(lat, lng, 5, 13, resolve_w3w=True)
-        spigot_s2 = build_grid_square_coord(lat, lng, 10, 9, resolve_w3w=True)
-        waypoints = [build_grid_square_coord(lat, lng, 5, 17, resolve_w3w=True)]
-
         plants = [
             self._build_planted_item_from_catalog(
                 lat, lng, "malus_honeycrisp", row=3, col=6, sub_slot=SubCellSlot.CENTER,
@@ -263,10 +261,6 @@ class GCPDataStore:
         ]
 
         analysis = analyze_yard_layout(
-            hose_length_ft=self.settings.DEFAULT_HOSE_LENGTH_FT,
-            spigot_s1=spigot_s1,
-            spigot_s2=spigot_s2,
-            hose_waypoints=waypoints,
             zones=zones,
             plants=plants,
             usda_zone=usda_zone,
@@ -285,10 +279,6 @@ class GCPDataStore:
             grid_cols=self.settings.DEFAULT_GRID_COLS,
             square_size_meters=self.settings.SQUARE_SIZE_METERS,
             square_size_feet=round(self.settings.square_size_feet, 2),
-            hose_length_ft=self.settings.DEFAULT_HOSE_LENGTH_FT,
-            spigot_s1=spigot_s1,
-            spigot_s2=spigot_s2,
-            hose_waypoints=waypoints,
             zones=zones,
             plants=plants,
             analysis=analysis,
@@ -296,8 +286,28 @@ class GCPDataStore:
         self._set_doc("yards", default_yard.yard_id, default_yard.model_dump())
 
     # ------------------------------------------------------------------
-    # Yard CRUD & Spatial Recalculation Operations
+    # Yard CRUD, Address-Keyed Persistence (Option A) & Spatial Recalculation
     # ------------------------------------------------------------------
+    @staticmethod
+    def normalize_address_key(street_address: str) -> str:
+        """Normalize a street address so typing the same address later resolves to the exact same key."""
+        cleaned = re.sub(r",\s*(usa|united states)$", "", (street_address or "").strip(), flags=re.IGNORECASE)
+        cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned.lower()).strip()
+        return cleaned
+
+    @classmethod
+    def address_to_yard_id(cls, street_address: str) -> str:
+        """
+        Option A Deterministic Property Key:
+        Maps any searched street address to its own dedicated Firestore document (`yard_addr_<hash>`)
+        so users never overwrite `yard_default` and can always resume by typing their address again.
+        """
+        norm = cls.normalize_address_key(street_address)
+        if not norm or "742 evergreen terrace" in norm:
+            return "yard_default"
+        digest = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:10]
+        return f"yard_addr_{digest}"
+
     def get_yard(self, yard_id: str = "yard_default") -> Optional[YardMap]:
         data = self._get_doc("yards", yard_id)
         return YardMap(**data) if data else None
@@ -307,14 +317,85 @@ class GCPDataStore:
 
     def find_yard_by_address(self, street_address: str) -> Optional[YardMap]:
         """Find a previously saved YardMap matching the given street address so custom borders are remembered."""
-        target = (street_address or "").strip().lower()
-        if not target:
+        norm_target = self.normalize_address_key(street_address)
+        if not norm_target:
             return None
+        # 1. Direct O(1) lookup by deterministic address yard_id
+        det_id = self.address_to_yard_id(street_address)
+        direct_yard = self.get_yard(det_id)
+        if direct_yard and self.normalize_address_key(direct_yard.street_address) == norm_target:
+            return direct_yard
+        # 2. Fallback scan across saved yards
         for yard in self.list_yards():
-            saved_addr = (yard.street_address or "").strip().lower()
-            if saved_addr == target or (len(target) >= 8 and (target in saved_addr or saved_addr in target)):
+            saved_norm = self.normalize_address_key(yard.street_address)
+            if saved_norm == norm_target or (
+                len(norm_target) >= 8 and (norm_target in saved_norm or saved_norm in norm_target)
+            ):
                 return yard
         return None
+
+    def resolve_or_fork_yard_for_geocoded_parcel(
+        self,
+        parcel: Dict[str, Any],
+        requested_yard_id: Optional[str] = None,
+        force_reset_border: bool = False,
+    ) -> Tuple[YardMap, bool]:
+        """
+        Option A (Address-Keyed Cloud Persistence + Auto-Forking):
+        - Never overwrites `yard_default` when a user searches a real street address.
+        - Automatically creates or loads the dedicated Firestore document for that street address.
+        - Restores any previously saved custom polygon boundaries, structures, and planted items.
+        """
+        new_fmt = (parcel.get("formatted_address") or "").strip()
+        det_yard_id = self.address_to_yard_id(new_fmt)
+
+        existing_yard: Optional[YardMap] = None
+        if requested_yard_id:
+            req_yard = self.get_yard(requested_yard_id)
+            if req_yard and self.normalize_address_key(req_yard.street_address) == self.normalize_address_key(new_fmt):
+                existing_yard = req_yard
+
+        if existing_yard is None:
+            existing_yard = self.find_yard_by_address(new_fmt)
+
+        if existing_yard is not None:
+            existing_yard.street_address = new_fmt
+            existing_yard.parcel_center_lat = parcel["parcel_center_lat"]
+            existing_yard.parcel_center_lng = parcel["parcel_center_lng"]
+            existing_yard.usda_zone = parcel["usda_zone"]
+            existing_yard.usda_min_temp_f = parcel["usda_min_temp_f"]
+
+            if (
+                not force_reset_border
+                and existing_yard.zones
+                and existing_yard.zones.footprint_source == "user_adjusted_custom_border"
+            ):
+                saved = self.save_yard(existing_yard)
+                return saved, True
+
+            existing_yard.zones = ParcelZoneMap(**parcel["zones"])
+            saved = self.save_yard(existing_yard)
+            return saved, False
+
+        short_street = new_fmt.split(",")[0].strip() if new_fmt else "My Home"
+        forked_yard = YardMap(
+            yard_id=det_yard_id,
+            yard_name=f"{short_street} Yard",
+            owner_name="Homeowner",
+            street_address=new_fmt,
+            parcel_center_lat=parcel["parcel_center_lat"],
+            parcel_center_lng=parcel["parcel_center_lng"],
+            usda_zone=parcel["usda_zone"],
+            usda_min_temp_f=parcel["usda_min_temp_f"],
+            grid_rows=self.settings.DEFAULT_GRID_ROWS,
+            grid_cols=self.settings.DEFAULT_GRID_COLS,
+            square_size_meters=self.settings.SQUARE_SIZE_METERS,
+            square_size_feet=round(self.settings.square_size_feet, 2),
+            zones=ParcelZoneMap(**parcel["zones"]),
+            plants=[],
+        )
+        saved = self.save_yard(forked_yard)
+        return saved, False
 
     def update_yard_borders(
         self,
@@ -333,17 +414,6 @@ class GCPDataStore:
         return self.save_yard(yard)
 
     def save_yard(self, yard: YardMap) -> YardMap:
-        yard.spigot_s1 = build_grid_square_coord(
-            yard.parcel_center_lat, yard.parcel_center_lng, yard.spigot_s1.row, yard.spigot_s1.col, resolve_w3w=True
-        )
-        if yard.spigot_s2 is not None:
-            yard.spigot_s2 = build_grid_square_coord(
-                yard.parcel_center_lat, yard.parcel_center_lng, yard.spigot_s2.row, yard.spigot_s2.col, resolve_w3w=True
-            )
-        yard.hose_waypoints = [
-            build_grid_square_coord(yard.parcel_center_lat, yard.parcel_center_lng, wp.row, wp.col, resolve_w3w=True)
-            for wp in (yard.hose_waypoints or [])
-        ]
         for p in yard.plants:
             p.square = build_grid_square_coord(
                 yard.parcel_center_lat, yard.parcel_center_lng, p.square.row, p.square.col, resolve_w3w=True
@@ -359,10 +429,6 @@ class GCPDataStore:
             )
 
         yard.analysis = analyze_yard_layout(
-            hose_length_ft=yard.hose_length_ft,
-            spigot_s1=yard.spigot_s1,
-            spigot_s2=yard.spigot_s2,
-            hose_waypoints=yard.hose_waypoints,
             zones=yard.zones,
             plants=yard.plants,
             usda_zone=yard.usda_zone,

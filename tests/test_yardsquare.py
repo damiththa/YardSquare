@@ -6,8 +6,8 @@ Verifies:
 2. Split-Provider Address Autocomplete ($0 Photon/Local) & Rooftop Geocode + OSM Footprint Extraction
 3. 3m x 3m What3Words Grid Coordinate Math & W3W On-Demand Resolver
 4. Botanical Species Catalog & Filtering
-5. Point-and-Click Plant Placement, 3x3 Sub-Square Slots, Care Logging & Spatial Analysis (Hose Reach + Root Safety)
-6. Interactive Property Border Adjustment Persistence
+5. Point-and-Click Plant Placement, 3x3 Sub-Square Slots, Care Logging & Spatial Analysis (Root & Canopy Safety)
+6. Interactive Property Border Adjustment & Option A Address-Keyed Cloud Persistence
 """
 
 from fastapi.testclient import TestClient
@@ -187,5 +187,52 @@ def test_custom_polygon_vertices_l_shaped_boundary() -> None:
     assert len(saved["zones"]["border_polygon_lat_lng"]) == 6
     assert len(saved["zones"]["fence_border_cells"]) > 20
     assert "R12-C21" in saved["zones"]["out_of_bounds_cells"]
+
+
+def test_option_a_address_keyed_auto_fork_and_persistence() -> None:
+    # Searching a brand-new address while viewing yard_default must NOT overwrite yard_default;
+    # instead it auto-creates a deterministic yard_addr_<hash> document.
+    geo1 = client.post(
+        "/api/v1/yard/geocode",
+        json={
+            "street_address": "1600 Pennsylvania Ave NW, Washington, DC 20500",
+            "apply_to_yard_id": "yard_default",
+            "force_reset_border": False,
+        },
+    )
+    assert geo1.status_code == 200
+    data1 = geo1.json()
+    forked_id = data1["yard_id"]
+    assert forked_id.startswith("yard_addr_")
+    assert forked_id != "yard_default"
+
+    # Verify yard_default was NOT overwritten
+    default_yard = client.get("/api/v1/yard/yard_default").json()
+    assert "Evergreen Terrace" in default_yard["street_address"]
+
+    # Save a custom fence + custom garage box on the forked address yard
+    zones = data1["zones"]
+    zones["garage_roof_cells"] = ["R6-C15", "R6-C16", "R7-C15", "R7-C16"]
+    save_resp = client.put(
+        f"/api/v1/yard/{forked_id}/borders",
+        json={"zones": zones, "yard_name": "Custom DC Property"},
+    )
+    assert save_resp.status_code == 200
+
+    # Simulate a user returning later on a fresh browser (starting at yard_default)
+    # and typing the same street address -> must resolve to forked_id and remember custom structures/fence!
+    geo2 = client.post(
+        "/api/v1/yard/geocode",
+        json={
+            "street_address": "1600 Pennsylvania Ave NW, Washington, DC 20500",
+            "apply_to_yard_id": "yard_default",
+            "force_reset_border": False,
+        },
+    )
+    assert geo2.status_code == 200
+    data2 = geo2.json()
+    assert data2["yard_id"] == forked_id
+    assert data2["remembered_custom_border"] is True
+    assert "R6-C15" in data2["zones"]["garage_roof_cells"]
 
 

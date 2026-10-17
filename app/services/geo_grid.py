@@ -7,10 +7,10 @@ Key Capabilities & Tier-1 ($0.00 Personal Use) Cost Guardrails:
 - Stage 2 Rooftop Geocode: Google Maps Geocoding API hard-capped at 300/day & 9,500/month
   (below Google's 10,000/month free Essentials SKU limit), with automatic Photon coordinate fallback.
 - Actual Land & Building Extraction: Queries OpenStreetMap Overpass API (`way["building"]`,
-  `way["landuse"]`, `way["barrier"]`) to project real building and yard polygons onto the 3m x 3m grid,
-  paired with interactive user border adjustment (`ParcelZoneMap`).
-- Botanical Spatial Analyzer: Computes garden hose reach from Spigots S1/S2 around waypoints (+15% slack),
-  root-to-foundation & septic proximity conflicts, mature canopy overhang, sun/shade zones, and USDA Hardiness compatibility.
+  `way["highway"]`) to project the target rooftop house, true detached garage/shed, mapped driveway,
+  and real street orientation onto the 3m x 3m grid, paired with interactive user border & structure adjustment (`ParcelZoneMap`).
+- Botanical Spatial Analyzer: Computes root-to-foundation & septic proximity conflicts,
+  mature canopy overhang, sun/shade zones, and USDA Hardiness compatibility.
 """
 
 import hashlib
@@ -30,7 +30,7 @@ from app.models import (
     PlantedItem,
     RootAggression,
     SunRequirement,
-    YardSafetyAndHoseReport,
+    YardSafetyReport,
 )
 from app.services.w3w_service import resolve_w3w_sync
 
@@ -501,6 +501,30 @@ def _point_in_polygon(lat: float, lng: float, polygon: List[Tuple[float, float]]
     return inside
 
 
+def _lat_lng_distance_meters(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Fast local planar distance in meters between two WGS84 coordinates."""
+    d_north = (lat2 - lat1) * 111_320.0
+    cos_lat = max(0.2, math.cos(math.radians((lat1 + lat2) * 0.5)))
+    d_east = (lng2 - lng1) * 111_320.0 * cos_lat
+    return math.hypot(d_north, d_east)
+
+
+def _polygon_area_m2(poly: List[Tuple[float, float]]) -> float:
+    """Approximate planar area in square meters of a [(lat, lng), ...] polygon."""
+    if len(poly) < 3:
+        return 0.0
+    ref_lat, ref_lng = poly[0]
+    cos_lat = max(0.2, math.cos(math.radians(ref_lat)))
+    pts_m = [((lat - ref_lat) * 111_320.0, (lng - ref_lng) * 111_320.0 * cos_lat) for lat, lng in poly]
+    shoelace = 0.0
+    n = len(pts_m)
+    for i in range(n):
+        y1, x1 = pts_m[i]
+        y2, x2 = pts_m[(i + 1) % n]
+        shoelace += (x1 * y2) - (x2 * y1)
+    return abs(shoelace) * 0.5
+
+
 def extract_actual_land_and_footprints(
     center_lat: float,
     center_lng: float,
@@ -509,9 +533,14 @@ def extract_actual_land_and_footprints(
     grid_cols: Optional[int] = None,
 ) -> ParcelZoneMap:
     """
-    Fetch actual building footprints and residential parcel bounds around `(center_lat, center_lng)`
-    via OpenStreetMap Overpass API ($0.00), and rasterize onto the 3m x 3m grid.
-    Falls back cleanly to an address-seeded residential lot footprint that the user can interactively edit.
+    Fetch actual building footprints, mapped driveways, and street orientation around `(center_lat, center_lng)`
+    via OpenStreetMap Overpass API ($0.00), and rasterize onto the 3m x 3m grid:
+    - Sorts building polygons by house-number match, rooftop containment, and distance so ONLY the target
+      home is placed in `house_roof_cells` (never neighboring homes).
+    - Only classifies a secondary polygon as `garage_shed_cells` if it is an auxiliary structure (`garage`,
+      `shed`, `detached`, `carport`, or small outbuilding < 75 m²) within 18m of the target house.
+    - Extracts mapped `service=driveway` ways and detects which edge of the lot the street actually runs on.
+    - Never invents a fake left-side garage or fake driveway for real searched addresses when OSM lacks a polygon.
     """
     settings = get_settings()
     rows = grid_rows or settings.DEFAULT_GRID_ROWS
@@ -523,18 +552,22 @@ def extract_actual_land_and_footprints(
     fence_cells: Set[str] = set()
     road_cells: Set[str] = set()
     out_of_bounds_cells: Set[str] = set()
-    footprint_source = "address_seeded_parcel_fit"
+    footprint_source = "rooftop_centered_parcel_fit"
 
-    # Attempt live OpenStreetMap Overpass query for real building footprint polygons within 45m
+    typed_house_num = (extract_leading_house_number(street_address) or "").lower()
+    street_Side = "south"  # Default street edge if no highway geometry is nearby
+
+    # Attempt live OpenStreetMap Overpass query for real building & highway/driveway geometry within 45m
     try:
         overpass_query = (
-            f'[out:json][timeout:3];'
-            f'('
-            f'way["building"](around:40,{center_lat},{center_lng});'
-            f');'
-            f'out geom;'
+            f"[out:json][timeout:4];"
+            f"("
+            f'way["building"](around:45,{center_lat},{center_lng});'
+            f'way["highway"](around:45,{center_lat},{center_lng});'
+            f");"
+            f"out geom;"
         )
-        with httpx.Client(timeout=2.5) as client:
+        with httpx.Client(timeout=3.5) as client:
             resp = client.post(
                 settings.OVERPASS_API_URL,
                 data={"data": overpass_query},
@@ -542,73 +575,219 @@ def extract_actual_land_and_footprints(
             )
             if resp.status_code == 200:
                 elements = resp.json().get("elements") or []
-                building_polys: List[List[Tuple[float, float]]] = []
-                for el in elements:
-                    geom = el.get("geometry") or []
-                    if len(geom) >= 3:
-                        poly = [( float(pt["lat"]), float(pt["lon"]) ) for pt in geom]
-                        building_polys.append(poly)
+                aux_tags = {"garage", "garages", "shed", "detached", "carport", "outbuilding", "barn", "roof"}
+                building_candidates: List[Dict[str, Any]] = []
+                highway_elements: List[Dict[str, Any]] = []
 
-                if building_polys:
+                for el in elements:
+                    tags = el.get("tags") or {}
+                    geom = el.get("geometry") or []
+                    if "building" in tags and len(geom) >= 3:
+                        poly = [(float(pt["lat"]), float(pt["lon"])) for pt in geom]
+                        c_lat = sum(p[0] for p in poly) / len(poly)
+                        c_lng = sum(p[1] for p in poly) / len(poly)
+                        centroid_dist = _lat_lng_distance_meters(center_lat, center_lng, c_lat, c_lng)
+                        vertex_dist = min(_lat_lng_distance_meters(center_lat, center_lng, p[0], p[1]) for p in poly)
+                        min_dist = min(centroid_dist, vertex_dist)
+                        contains_pt = _point_in_polygon(center_lat, center_lng, poly)
+                        area_m2 = _polygon_area_m2(poly)
+                        b_type = str(tags.get("building") or "yes").strip().lower()
+                        addr_num = str(tags.get("addr:housenumber") or "").strip().lower()
+                        num_match = bool(typed_house_num and addr_num and typed_house_num == addr_num)
+                        is_aux = (b_type in aux_tags) or (area_m2 < 52.0 and not num_match)
+
+                        building_candidates.append(
+                            {
+                                "poly": poly,
+                                "c_lat": c_lat,
+                                "c_lng": c_lng,
+                                "min_dist": min_dist,
+                                "centroid_dist": centroid_dist,
+                                "contains_pt": contains_pt,
+                                "area_m2": area_m2,
+                                "b_type": b_type,
+                                "num_match": num_match,
+                                "is_aux": is_aux,
+                            }
+                        )
+                    elif "highway" in tags and len(geom) >= 2:
+                        highway_elements.append(el)
+
+                # 1. Select the single true target house polygon (never neighbor houses)
+                main_candidates = [b for b in building_candidates if not b["is_aux"]] or building_candidates
+                main_candidates.sort(
+                    key=lambda b: (
+                        not b["num_match"],
+                        not b["contains_pt"],
+                        b["min_dist"],
+                    )
+                )
+
+                target_house = None
+                if main_candidates and (main_candidates[0]["contains_pt"] or main_candidates[0]["min_dist"] <= 26.0):
+                    target_house = main_candidates[0]
+
+                if target_house is not None:
+                    other_main_houses = [b for b in main_candidates if b is not target_house]
+                    # Select true detached garages/sheds belonging to this house (within 18m of house centroid)
+                    target_aux_polys: List[List[Tuple[float, float]]] = []
+                    for b in building_candidates:
+                        if b is target_house:
+                            continue
+                        if not b["is_aux"] and b["area_m2"] >= 75.0:
+                            continue  # Skip full-sized neighboring houses
+                        dist_to_target = _lat_lng_distance_meters(
+                            target_house["c_lat"], target_house["c_lng"], b["c_lat"], b["c_lng"]
+                        )
+                        if dist_to_target <= 18.5:
+                            closer_to_neighbor = any(
+                                _lat_lng_distance_meters(nh["c_lat"], nh["c_lng"], b["c_lat"], b["c_lng"])
+                                < dist_to_target
+                                for nh in other_main_houses
+                            )
+                            if not closer_to_neighbor:
+                                target_aux_polys.append(b["poly"])
+
                     for r in range(rows):
                         for c in range(cols):
                             clat, clng = grid_cell_to_lat_lng(center_lat, center_lng, r, c, rows, cols)
-                            if _point_in_polygon(clat, clng, building_polys[0]):
+                            if _point_in_polygon(clat, clng, target_house["poly"]):
                                 house_cells.add(format_cell_label(r, c))
-                            elif any(_point_in_polygon(clat, clng, bp) for bp in building_polys[1:]):
+                            elif any(_point_in_polygon(clat, clng, ap) for ap in target_aux_polys):
                                 garage_cells.add(format_cell_label(r, c))
-                    if house_cells:
-                        footprint_source = "osm_overpass_live_building_polygon"
+
+                    # Ensure at least the target house centroid cell is marked if polygon is narrow
+                    if not house_cells:
+                        hr, hc = lat_lng_to_grid_cell(
+                            center_lat, center_lng, target_house["c_lat"], target_house["c_lng"], rows, cols
+                        )
+                        house_cells.add(format_cell_label(hr, hc))
+
+                    footprint_source = "osm_overpass_live_building_polygon"
+
+                # 2. Extract mapped driveways and detect true street orientation from highway ways
+                street_cells_detected: List[Tuple[int, int]] = []
+                for hw in highway_elements:
+                    tags = hw.get("tags") or {}
+                    hw_type = str(tags.get("highway") or "").strip().lower()
+                    srv_type = str(tags.get("service") or "").strip().lower()
+                    geom = hw.get("geometry") or []
+                    pts = [(float(pt["lat"]), float(pt["lon"])) for pt in geom]
+
+                    if hw_type == "service" and srv_type in ("driveway", "parking_aisle", ""):
+                        # Only include driveway segments close to our property center (< 24m)
+                        min_hw_dist = min(_lat_lng_distance_meters(center_lat, center_lng, p[0], p[1]) for p in pts)
+                        if min_hw_dist <= 24.0:
+                            grid_pts = [lat_lng_to_grid_cell(center_lat, center_lng, p[0], p[1], rows, cols) for p in pts]
+                            for idx in range(len(grid_pts) - 1):
+                                r0, c0 = grid_pts[idx]
+                                r1, c1 = grid_pts[idx + 1]
+                                for lr, lc in bresenham_grid_line(r0, c0, r1, c1):
+                                    lbl = format_cell_label(lr, lc)
+                                    if lbl not in house_cells and lbl not in garage_cells:
+                                        driveway_cells.add(lbl)
+                    elif hw_type in (
+                        "residential",
+                        "tertiary",
+                        "secondary",
+                        "unclassified",
+                        "living_street",
+                        "primary",
+                        "road",
+                    ):
+                        for p_lat, p_lng in pts:
+                            if _lat_lng_distance_meters(center_lat, center_lng, p_lat, p_lng) <= 42.0:
+                                sr, sc = lat_lng_to_grid_cell(center_lat, center_lng, p_lat, p_lng, rows, cols)
+                                street_cells_detected.append((sr, sc))
+
+                if street_cells_detected:
+                    avg_sr = sum(p[0] for p in street_cells_detected) / len(street_cells_detected)
+                    avg_sc = sum(p[1] for p in street_cells_detected) / len(street_cells_detected)
+                    norm_dr = (avg_sr - (rows / 2.0)) / (rows / 2.0)
+                    norm_dc = (avg_sc - (cols / 2.0)) / (cols / 2.0)
+                    if abs(norm_dr) >= abs(norm_dc):
+                        street_Side = "south" if norm_dr >= 0 else "north"
+                    else:
+                        street_Side = "east" if norm_dc >= 0 else "west"
     except Exception:
         pass
 
-    # If OSM had no building polygon mapped at this coordinate, synthesize a realistic house + garage footprint
     digest = hashlib.sha256((street_address or f"{center_lat}:{center_lng}").lower().encode("utf-8")).digest()
-    lot_margin_cols = 2 + (digest[0] % 2)  # 2 or 3 cols outside fence on left/right
-    lot_margin_top = 1                     # 1 row outside north fence
+    lot_margin_cols = 2 + (digest[0] % 2)
+    lot_margin_top = 1
+    is_builtin_demo = "742 evergreen terrace" in (street_address or "").lower()
 
     if not house_cells:
-        h_r_start = 6
-        h_r_end = 10
-        h_c_start = 10 + (digest[1] % 2)
-        h_c_end = h_c_start + 5
-        for r in range(h_r_start, h_r_end + 1):
-            for c in range(h_c_start, h_c_end + 1):
-                house_cells.add(format_cell_label(r, c))
+        if is_builtin_demo:
+            # Rich showcase layout for the default fictional Evergreen Terrace demo yard
+            footprint_source = "address_seeded_parcel_fit"
+            h_r_start, h_r_end = 6, 10
+            h_c_start = 10 + (digest[1] % 2)
+            h_c_end = h_c_start + 5
+            for r in range(h_r_start, h_r_end + 1):
+                for c in range(h_c_start, h_c_end + 1):
+                    house_cells.add(format_cell_label(r, c))
 
-        g_c_start = h_c_start - 3
-        g_c_end = h_c_start - 1
-        for r in range(h_r_start + 1, h_r_end + 1):
-            for c in range(g_c_start, g_c_end + 1):
-                garage_cells.add(format_cell_label(r, c))
+            g_c_start, g_c_end = h_c_start - 3, h_c_start - 1
+            for r in range(h_r_start + 1, h_r_end + 1):
+                for c in range(g_c_start, g_c_end + 1):
+                    garage_cells.add(format_cell_label(r, c))
 
-        # Driveway from garage to street apron
-        for r in range(h_r_end + 1, rows - 1):
-            for c in range(g_c_start, g_c_end + 1):
-                driveway_cells.add(format_cell_label(r, c))
+            for r in range(h_r_end + 1, rows - 1):
+                for c in range(g_c_start, g_c_end + 1):
+                    driveway_cells.add(format_cell_label(r, c))
 
-        # Backyard patio behind main house
-        for r in range(h_r_start - 2, h_r_start):
-            for c in range(h_c_start + 1, h_c_end):
-                driveway_cells.add(format_cell_label(r, c))
+            for r in range(h_r_start - 2, h_r_start):
+                for c in range(h_c_start + 1, h_c_end):
+                    driveway_cells.add(format_cell_label(r, c))
+        else:
+            # Real searched address without an OSM polygon: place ONLY the rooftop-centered house (never guess a fake garage/driveway)
+            footprint_source = "rooftop_centered_parcel_fit"
+            c_row = rows // 2
+            c_col = cols // 2
+            for r in range(max(2, c_row - 2), min(rows - 3, c_row + 1) + 1):
+                for c in range(max(3, c_col - 2), min(cols - 4, c_col + 2) + 1):
+                    house_cells.add(format_cell_label(r, c))
 
-    # Bottom row is the street apron
-    for c in range(cols):
-        road_cells.add(format_cell_label(rows - 1, c))
+    # Place street apron along the detected street edge
+    if street_Side == "north":
+        for c in range(cols):
+            road_cells.add(format_cell_label(0, c))
+        min_lot_r, max_lot_r = 1, rows - 2
+        min_lot_c, max_lot_c = lot_margin_cols, cols - 1 - lot_margin_cols
+    elif street_Side == "west":
+        for r in range(rows):
+            road_cells.add(format_cell_label(r, 0))
+        min_lot_r, max_lot_r = 1, rows - 2
+        min_lot_c, max_lot_c = 1, cols - 1 - lot_margin_cols
+    elif street_Side == "east":
+        for r in range(rows):
+            road_cells.add(format_cell_label(r, cols - 1))
+        min_lot_r, max_lot_r = 1, rows - 2
+        min_lot_c, max_lot_c = lot_margin_cols, cols - 2
+    else:
+        for c in range(cols):
+            road_cells.add(format_cell_label(rows - 1, c))
+        min_lot_r, max_lot_r = lot_margin_top, rows - 2
+        min_lot_c, max_lot_c = lot_margin_cols, cols - 1 - lot_margin_cols
 
-    # Out-of-bounds neighbor strips & perimeter fence border (adjustable by homeowner)
-    min_lot_r = lot_margin_top
-    max_lot_r = rows - 2
-    min_lot_c = lot_margin_cols
-    max_lot_c = cols - 1 - lot_margin_cols
-
-    for r in range(rows - 1):
+    for r in range(rows):
         for c in range(cols):
             lbl = format_cell_label(r, c)
-            if r < min_lot_r or c < min_lot_c or c > max_lot_c:
+            if lbl in road_cells:
+                continue
+            if r < min_lot_r or r > max_lot_r or c < min_lot_c or c > max_lot_c:
                 out_of_bounds_cells.add(lbl)
-            elif r == min_lot_r or c == min_lot_c or c == max_lot_c:
-                if lbl not in driveway_cells and lbl not in house_cells:
+            elif r == min_lot_r or r == max_lot_r or c == min_lot_c or c == max_lot_c:
+                # Leave the street-facing edge unfenced
+                if (
+                    (street_Side == "south" and r == max_lot_r)
+                    or (street_Side == "north" and r == min_lot_r)
+                    or (street_Side == "west" and c == min_lot_c)
+                    or (street_Side == "east" and c == max_lot_c)
+                ):
+                    continue
+                if lbl not in driveway_cells and lbl not in house_cells and lbl not in garage_cells:
                     fence_cells.add(lbl)
 
     # Compute the 4 corner lat/lng coordinates of the editable property border polygon
@@ -623,7 +802,9 @@ def extract_actual_land_and_footprints(
         driveway_patio_cells=sorted(driveway_cells),
         fence_border_cells=sorted(fence_cells),
         road_apron_cells=sorted(road_cells),
-        septic_utility_cells=[format_cell_label(7, max_lot_c - 2), format_cell_label(8, max_lot_c - 2)],
+        septic_utility_cells=[format_cell_label(7, max_lot_c - 2), format_cell_label(8, max_lot_c - 2)]
+        if is_builtin_demo
+        else [],
         out_of_bounds_cells=sorted(out_of_bounds_cells),
         border_vertices=[
             {"row": min_lot_r, "col": min_lot_c},
@@ -881,19 +1062,7 @@ def geocode_address_to_yard_parcel(
         except Exception:
             pass
 
-    if fallback_lat is not None and fallback_lng is not None:
-        return _build_geocoded_parcel_payload(
-            street_address.strip(),
-            round(float(fallback_lat), 6),
-            round(float(fallback_lng), 6),
-            precision_source="photon_osm_fallback",
-        )
-
-    if lowered in _AUTOCOMPLETE_FALLBACK_COORDS:
-        fb_lat, fb_lng, fb_fmt = _AUTOCOMPLETE_FALLBACK_COORDS[lowered]
-        return _build_geocoded_parcel_payload(fb_fmt, fb_lat, fb_lng, precision_source="photon_osm_fallback")
-
-    # $0 US E-911 rooftop coordinate fallback when Google Maps key is not set
+    # $0 US E-911 rooftop coordinate resolver when Google Maps key is not set (preferred over street-centerline Photon coords)
     try:
         with httpx.Client(timeout=1.8) as client:
             cand_resp = client.get(
@@ -922,6 +1091,18 @@ def geocode_address_to_yard_parcel(
                         )
     except Exception:
         pass
+
+    if fallback_lat is not None and fallback_lng is not None:
+        return _build_geocoded_parcel_payload(
+            street_address.strip(),
+            round(float(fallback_lat), 6),
+            round(float(fallback_lng), 6),
+            precision_source="photon_osm_fallback",
+        )
+
+    if lowered in _AUTOCOMPLETE_FALLBACK_COORDS:
+        fb_lat, fb_lng, fb_fmt = _AUTOCOMPLETE_FALLBACK_COORDS[lowered]
+        return _build_geocoded_parcel_payload(fb_fmt, fb_lat, fb_lng, precision_source="photon_osm_fallback")
 
     digest = hashlib.sha256(lowered.encode("utf-8")).hexdigest()
     lat_offset = ((int(digest[:6], 16) % 2000) - 1000) * 0.0001
@@ -998,22 +1179,16 @@ def compute_cell_sun_exposure(
 
 
 def analyze_yard_layout(
-    hose_length_ft: int,
-    spigot_s1: Optional[GridSquareCoord],
-    spigot_s2: Optional[GridSquareCoord],
-    hose_waypoints: List[GridSquareCoord],
     zones: ParcelZoneMap,
     plants: List[PlantedItem],
     usda_zone: str = "5b",
-) -> YardSafetyAndHoseReport:
+) -> YardSafetyReport:
     """
     Comprehensive spatial & botanical analyzer for a YardSquare property:
-    1. Calculates garden hose reach (+15% slack) from Spigot S1 or S2 around waypoints to every planted square.
-    2. Checks root-to-foundation & root-to-septic conflicts for trees with medium/high root aggression.
-    3. Checks mature canopy overhang across property borders / out-of-bounds cells.
-    4. Checks sun/shade exposure match and USDA Hardiness Zone compatibility.
+    1. Checks root-to-foundation & root-to-septic conflicts for trees with medium/high root aggression.
+    2. Checks mature canopy overhang across property borders / out-of-bounds cells.
+    3. Checks sun/shade exposure match and USDA Hardiness Zone compatibility.
     """
-    settings = get_settings()
     house_coords = [parse_cell_label(lbl) for lbl in (zones.house_roof_cells + zones.garage_shed_cells)]
     house_pts = [pt for pt in house_coords if pt is not None]
     septic_coords = [parse_cell_label(lbl) for lbl in zones.septic_utility_cells]
@@ -1028,8 +1203,6 @@ def analyze_yard_layout(
     trees_count = 0
     shrubs_count = 0
     beds_count = 0
-    max_hose_pull = 0.0
-    all_within_hose = True
     root_conflicts = 0
     canopy_overhangs = 0
     sun_mismatches = 0
@@ -1050,34 +1223,7 @@ def analyze_yard_layout(
         pr, pc = plant.square.row, plant.square.col
         cell_label = plant.square.label or format_cell_label(pr, pc)
 
-        # 1. Garden Hose Reach from Spigot S1 (via waypoints) vs S2 (direct)
-        nearest_spigot = "S1"
-        pull_ft = 0.0
-        if spigot_s1 is not None:
-            chain = [spigot_s1] + list(hose_waypoints or []) + [plant.square]
-            routed_ft = 0.0
-            for idx in range(len(chain) - 1):
-                routed_ft += euclidean_squares_distance_ft(
-                    chain[idx].row, chain[idx].col, chain[idx + 1].row, chain[idx + 1].col
-                )
-            pull_ft = round(routed_ft * settings.HOSE_SLACK_MULTIPLIER, 1)
-
-        if spigot_s2 is not None:
-            s2_pull = round(
-                euclidean_squares_distance_ft(spigot_s2.row, spigot_s2.col, pr, pc) * settings.HOSE_SLACK_MULTIPLIER,
-                1,
-            )
-            if spigot_s1 is None or s2_pull < pull_ft:
-                pull_ft = s2_pull
-                nearest_spigot = "S2"
-
-        if pull_ft > max_hose_pull:
-            max_hose_pull = pull_ft
-        hose_ok = pull_ft <= hose_length_ft
-        if not hose_ok:
-            all_within_hose = False
-
-        # 2. Sun Exposure Check
+        # 1. Sun Exposure Check
         cell_sun = compute_cell_sun_exposure(pr, pc, zones, plants, exclude_plant_id=plant.plant_id)
         sun_ok = True
         if plant.sun_need == SunRequirement.FULL_SUN and cell_sun == SunRequirement.FULL_SHADE:
@@ -1087,7 +1233,7 @@ def analyze_yard_layout(
         if not sun_ok:
             sun_mismatches += 1
 
-        # 3. Root Foundation & Septic Safety Check
+        # 2. Root Foundation & Septic Safety Check
         min_safe_foundation_ft = (
             20.0
             if plant.root_aggression == RootAggression.HIGH
@@ -1108,7 +1254,7 @@ def analyze_yard_layout(
         if root_foundation_conflict or root_septic_conflict:
             root_conflicts += 1
 
-        # 4. Mature Canopy Property Border Overhang Check
+        # 3. Mature Canopy Property Border Overhang Check
         canopy_radius_ft = plant.mature_spread_ft / 2.0
         canopy_overhang = False
         if canopy_radius_ft >= 7.0 and border_pts:
@@ -1118,10 +1264,6 @@ def analyze_yard_layout(
                 canopy_overhangs += 1
 
         warnings: List[str] = []
-        if not hose_ok:
-            warnings.append(
-                f"Hose reach needed ({pull_ft} ft from {nearest_spigot}) exceeds {hose_length_ft} ft garden hose."
-            )
         if root_foundation_conflict:
             warnings.append(
                 f"{plant.common_name} has {plant.root_aggression.value} root aggression too close to house/garage foundation."
@@ -1145,9 +1287,6 @@ def analyze_yard_layout(
                 common_name=plant.common_name,
                 cell_label=cell_label,
                 w3w=plant.square.w3w,
-                nearest_spigot_label=nearest_spigot,
-                hose_pull_required_ft=pull_ft,
-                hose_reachable=hose_ok,
                 sun_exposure_in_cell=cell_sun,
                 sun_compatible=sun_ok,
                 usda_zone_compatible=(3 <= prop_zone_num <= 9),
@@ -1159,33 +1298,26 @@ def analyze_yard_layout(
         )
 
     recs: List[str] = []
-    if all_within_hose:
-        recs.append(
-            f"All {len(plants)} plantings are reachable with your {hose_length_ft} ft garden hose (max pull: {max_hose_pull} ft incl. +15% slack)."
-        )
-    else:
-        recs.append(
-            f"Max garden hose pull is {max_hose_pull} ft (exceeds {hose_length_ft} ft hose). Consider adding a secondary spigot (S2) or extending hose length."
-        )
     if root_conflicts > 0:
         recs.append(
             f"{root_conflicts} tree(s) have medium/high root aggression near foundations or septic zones — inspect warnings before planting."
+        )
+    if canopy_overhangs > 0:
+        recs.append(
+            f"{canopy_overhangs} tree(s) have mature canopies that will overhang the property fence/border."
         )
     if sun_mismatches > 0:
         recs.append(
             f"{sun_mismatches} plant(s) have a sun/shade mismatch with their 3m square's shadow profile."
         )
-    if root_conflicts == 0 and sun_mismatches == 0 and all_within_hose:
-        recs.append("Botanical layout looks healthy: zero root conflicts, optimal sun matching, and full hose coverage!")
+    if root_conflicts == 0 and sun_mismatches == 0 and canopy_overhangs == 0:
+        recs.append("Botanical layout looks healthy: zero root conflicts, optimal sun matching, and clean canopy clearance!")
 
-    return YardSafetyAndHoseReport(
+    return YardSafetyReport(
         total_plants=len(plants),
         trees_count=trees_count,
         shrubs_perennials_count=shrubs_count,
         garden_beds_count=beds_count,
-        hose_length_ft=hose_length_ft,
-        max_hose_pull_ft=max_hose_pull,
-        all_plants_within_hose_reach=all_within_hose,
         root_conflict_count=root_conflicts,
         canopy_overhang_count=canopy_overhangs,
         sun_mismatch_count=sun_mismatches,

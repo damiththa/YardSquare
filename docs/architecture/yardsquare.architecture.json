@@ -3,7 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "YardSquare — Cloud-Direct GCP 3m×3m What3Words Botanical & Yard Companion",
-    "subtitle": "Actual Land & Building Footprint Extraction, Interactive Border Brush, 3×3 Sub-Squares, Hose Reach & Root Safety",
+    "subtitle": "Rooftop & OSM Structure/Driveway Extraction, Interactive Polygon & Structure Studio, 3×3 Sub-Squares & Root Safety",
     "output": "docs/architecture/yardsquare-architecture.html",
     "visual_preset": "blueprint",
     "animation": "trace",
@@ -17,15 +17,15 @@
     "views": [
       {
         "id": "address-to-parcel-border",
-        "label": "1. Address Lookup, Actual Land & Border Adjustment",
+        "label": "1. Address Lookup, Structure GIS & Border Studio",
         "focus": ["yard_companion_ui", "fastapi_gateway", "geo_parcel_engine", "photon_overpass_osm", "external_geo_w3w", "firestore_gcs_store"],
-        "note": "Stage 1: $0 Photon/OSM autocomplete. Stage 2: Rooftop geocode + OSM Overpass actual building footprint + USDA Hardiness Zone + interactive property border adjustment."
+        "note": "Stage 1: $0 Photon/OSM autocomplete. Stage 2: US E-911 Rooftop geocode + OSM Overpass house/garage/driveway extraction + address-keyed cloud persistence (yard_addr_<hash>)."
       },
       {
         "id": "plant-care-and-safety",
-        "label": "2. 3m×3m W3W Planting, 3×3 Sub-Squares & Safety",
+        "label": "2. 3m×3m W3W Planting, 3×3 Sub-Squares & Root Safety",
         "focus": ["yard_companion_ui", "mobile_walk_pwa", "fastapi_gateway", "geo_parcel_engine", "botanical_catalog_engine", "firestore_gcs_store"],
-        "note": "Homeowner places trees/shrubs/beds in 3m W3W squares (or 3×3 1m sub-slots), checks garden hose reach (+15% slack), root-foundation/septic safety, and logs 1-tap care."
+        "note": "Homeowner places trees/shrubs/beds in 3m W3W squares (or 3×3 1m sub-slots), checks root-foundation/septic safety and sun/canopy compatibility, and logs 1-tap care."
       },
       {
         "id": "cicd-and-tier1-guardrails",
@@ -40,13 +40,13 @@
       "id": "yard_companion_ui",
       "type": "frontend",
       "label": "Yard Companion Studio",
-      "sublabel": "Polygon & Corner Handle UI",
+      "sublabel": "Polygon & Structure Drag UI",
       "brand": "javascript",
       "tag": "Phase 1 Web UI",
       "pos": [40, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/index.html", "line": 1, "end_line": 2099, "label": "Web-First 3m W3W grid, Point-to-Point Polygon & Draggable Corner Handles" }
+        { "path": "app/static/index.html", "line": 1, "end_line": 2132, "label": "Web-First 3m W3W grid, Polygon Builder, Drag-Box Structure Tools & URL/Storage Yard ID" }
       ]
     },
     {
@@ -89,7 +89,7 @@
       "size": [168, 68],
       "sources": [
         { "path": "app/services/secret_manager.py", "line": 1, "end_line": 55, "label": "GCP Secret Manager runtime loader" },
-        { "path": "app/config.py", "line": 1, "end_line": 133, "label": "Environment config & ≤9.5k/mo cap" }
+        { "path": "app/config.py", "line": 1, "end_line": 147, "label": "Environment config & ≤9.5k/mo cap" }
       ]
     },
     {
@@ -103,7 +103,7 @@
       "size": [168, 68],
       "sources": [
         { "path": "app/main.py", "line": 1, "end_line": 104, "label": "FastAPI entrypoint & /architecture" },
-        { "path": "app/routers/yard.py", "line": 1, "end_line": 217, "label": "Parcel, PUT /borders, remembered fence & plant router" },
+        { "path": "app/routers/yard.py", "line": 1, "end_line": 190, "label": "Parcel geocode auto-fork, PUT /borders & plant router" },
         { "path": "app/routers/w3w.py", "line": 1, "end_line": 44, "label": "What3Words 3m square router" }
       ]
     },
@@ -117,7 +117,7 @@
       "pos": [620, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1195, "label": "Bresenham/Ray-Cast polygon rasterizer, OSM parcel & spatial analyzer" },
+        { "path": "app/services/geo_grid.py", "line": 1, "end_line": 1327, "label": "Bresenham/Ray-Cast rasterizer, OSM building/driveway selector & root safety analyzer" },
         { "path": "app/services/w3w_service.py", "line": 1, "end_line": 98, "label": "W3W v3 resolver & 402 circuit breaker" }
       ]
     },
@@ -125,14 +125,14 @@
       "id": "firestore_gcs_store",
       "type": "database",
       "label": "Firestore & GCS Media",
-      "sublabel": "Remembered fences & yards",
+      "sublabel": "Address-Keyed Cloud Yards",
       "brand": "firebase",
       "tag": "nam5 store",
       "pos": [620, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 470, "label": "Firestore dev_*/prod_*, custom border memory & GCS store" },
-        { "path": "app/models.py", "line": 1, "end_line": 291, "label": "Pydantic v2 YardMap, border_vertices & PlantedItem schemas" }
+        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 536, "label": "Firestore dev_*/prod_*, yard_addr_<hash> auto-fork & custom border memory" },
+        { "path": "app/models.py", "line": 1, "end_line": 281, "label": "Pydantic v2 YardMap, border_vertices & YardSafetyReport schemas" }
       ]
     },
     {
@@ -163,7 +163,7 @@
       "id": "photon_overpass_osm",
       "type": "external",
       "label": "US E-911, Photon & OSM",
-      "sublabel": "$0 Suggest & Building Polys",
+      "sublabel": "$0 Rooftop & Building Polys",
       "tag": "0 Google quota",
       "pos": [910, 240],
       "size": [162, 68]
@@ -237,7 +237,7 @@
       "id": "gateway-to-geo",
       "from": "fastapi_gateway",
       "to": "geo_parcel_engine",
-      "label": "3m grid, border & hose",
+      "label": "3m grid, border & safety",
       "variant": "emphasis",
       "fromSide": "right",
       "toSide": "left",

@@ -5,7 +5,7 @@ Zero Hardcoded Values & Strict Tier-1 ($0.00 Personal Use) Cost Protection Archi
 - All sensitive keys (`GOOGLE_MAPS_API_KEY`, `W3W_API_KEY`, `PERENUAL_API_KEY`, `PLANTNET_API_KEY`,
   `SESSION_SIGNING_SECRET`) are loaded at runtime via `app/services/secret_manager.py`
   from Cloud Run `--set-secrets` environment bindings or directly from Google Cloud Secret Manager.
-- All external endpoint URLs, grid dimensions, hose slack multipliers, and quota caps are
+- All external endpoint URLs, grid dimensions, and quota caps are
   configurable via environment variables.
 - Enforces hard monthly request caps (`MAPS_MONTHLY_FREE_TIER_CAP=9500`, below Google Maps'
   10,000/month free SKU limit) so YardSquare never spills into paid Pay-As-You-Go billing.
@@ -49,8 +49,6 @@ class Settings(BaseSettings):
     DEFAULT_GRID_COLS: int = 26
     SQUARE_SIZE_METERS: float = 3.0
     FEET_PER_METER: float = 3.28084
-    DEFAULT_HOSE_LENGTH_FT: int = 100
-    HOSE_SLACK_MULTIPLIER: float = 1.15
     DEFAULT_FALLBACK_LAT: float = 44.2601
     DEFAULT_FALLBACK_LNG: float = -72.5754
 

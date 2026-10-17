@@ -6,7 +6,7 @@ Covers:
 2. Property Parcel Borders, Building Footprints & Editable Land Zones
 3. Botanical Species Catalog (Trees, Shrubs, Perennials, Vegetables/Herbs, Groundcovers)
 4. Planted Items, Seasonal Care Logs & GCS Growth Timeline Photos
-5. Garden Hose Reach, Root-Foundation Safety & Mature Canopy Analysis
+5. Root-Foundation Safety, Mature Canopy Overhang & Sun/Zone Spatial Analysis
 """
 
 from datetime import datetime
@@ -194,16 +194,12 @@ class PlantedItem(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# 4. Yard Spatial Analysis: Hose Reach, Root Hazards & Canopy Report
+# 4. Yard Spatial Analysis: Root Hazards, Canopy Overhang & Sun/Zone Report
 # ---------------------------------------------------------------------------
 class YardAnalysisRequest(BaseModel):
     parcel_center_lat: float = 44.2601
     parcel_center_lng: float = -72.5754
     usda_zone: str = "5a"
-    hose_length_ft: int = 100
-    spigot_s1: Optional[GridSquareCoord] = None
-    spigot_s2: Optional[GridSquareCoord] = None
-    hose_waypoints: List[GridSquareCoord] = Field(default_factory=list)
     zones: ParcelZoneMap = Field(default_factory=ParcelZoneMap)
     plants: List[PlantedItem] = Field(default_factory=list)
 
@@ -213,9 +209,6 @@ class PlantSpatialCheck(BaseModel):
     common_name: str
     cell_label: str
     w3w: Optional[str] = None
-    nearest_spigot_label: str = "S1"
-    hose_pull_required_ft: float = 0.0
-    hose_reachable: bool = True
     sun_exposure_in_cell: SunRequirement = SunRequirement.FULL_SUN
     sun_compatible: bool = True
     usda_zone_compatible: bool = True
@@ -225,20 +218,21 @@ class PlantSpatialCheck(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
-class YardSafetyAndHoseReport(BaseModel):
+class YardSafetyReport(BaseModel):
     total_plants: int = 0
     trees_count: int = 0
     shrubs_perennials_count: int = 0
     garden_beds_count: int = 0
-    hose_length_ft: int = 100
-    max_hose_pull_ft: float = 0.0
-    all_plants_within_hose_reach: bool = True
     root_conflict_count: int = 0
     canopy_overhang_count: int = 0
     sun_mismatch_count: int = 0
     plants_needing_attention: int = 0
     plant_checks: List[PlantSpatialCheck] = Field(default_factory=list)
     recommendations: List[str] = Field(default_factory=list)
+
+
+# Backwards-compatible alias
+YardSafetyAndHoseReport = YardSafetyReport
 
 
 # ---------------------------------------------------------------------------
@@ -257,13 +251,9 @@ class YardMap(BaseModel):
     grid_cols: int = 26
     square_size_meters: float = 3.0
     square_size_feet: float = 9.84
-    hose_length_ft: int = 100
-    spigot_s1: GridSquareCoord
-    spigot_s2: Optional[GridSquareCoord] = None
-    hose_waypoints: List[GridSquareCoord] = Field(default_factory=list)
     zones: ParcelZoneMap = Field(default_factory=ParcelZoneMap)
     plants: List[PlantedItem] = Field(default_factory=list)
-    analysis: YardSafetyAndHoseReport = Field(default_factory=YardSafetyAndHoseReport)
+    analysis: YardSafetyReport = Field(default_factory=YardSafetyReport)
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
 
 

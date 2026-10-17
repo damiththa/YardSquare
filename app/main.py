@@ -27,8 +27,8 @@ app = FastAPI(
     version=settings.API_VERSION,
     description=(
         "Residential Plant & Tree Yard Tracker on a 3m x 3m What3Words Property Grid with "
-        "Actual Land & Building Footprint Extraction, Interactive Border Adjustment, 3x3 Sub-Square "
-        "Garden Beds, Garden Hose Reach, and Root/Canopy Safety Analysis. Built directly on GCP."
+        "Actual Land & Building Footprint Extraction, Interactive Polygon Border Adjustment, 3x3 Sub-Square "
+        "Garden Beds, and Root/Canopy/Sun Safety Analysis. Built directly on GCP."
     ),
 )
 

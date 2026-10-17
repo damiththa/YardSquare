@@ -56,50 +56,27 @@ def address_autocomplete(
 def geocode_and_extract_parcel(req: GeocodeRequest) -> Dict[str, Any]:
     """
     Stage 2 Rooftop Geocode + OSM Overpass Building/Parcel Footprint + USDA Hardiness Zone.
-    Preserves previously saved custom fence/border adjustments (`user_adjusted_custom_border`)
-    for the same street address unless `force_reset_border=True` is requested.
+    Option A (Address-Keyed Cloud Persistence + Auto-Forking):
+    - Never overwrites `yard_default` when searching a real street address.
+    - Automatically resolves or creates the dedicated Firestore document (`yard_addr_<hash>`) for that address.
+    - Preserves previously saved custom fence/border adjustments (`user_adjusted_custom_border`)
+      for that street address unless `force_reset_border=True` is requested.
     """
     parcel = geocode_address_to_yard_parcel(
         street_address=req.street_address,
         fallback_lat=req.fallback_lat,
         fallback_lng=req.fallback_lng,
     )
-    parcel["remembered_custom_border"] = False
-    if req.apply_to_yard_id:
-        store = get_store()
-        yard = store.get_yard(req.apply_to_yard_id)
-        if yard:
-            new_fmt = (parcel["formatted_address"] or "").strip()
-            same_address = (yard.street_address or "").strip().lower() == new_fmt.lower()
-            remembered_yard = store.find_yard_by_address(new_fmt)
-
-            yard.street_address = new_fmt
-            yard.parcel_center_lat = parcel["parcel_center_lat"]
-            yard.parcel_center_lng = parcel["parcel_center_lng"]
-            yard.usda_zone = parcel["usda_zone"]
-            yard.usda_min_temp_f = parcel["usda_min_temp_f"]
-
-            if (
-                not req.force_reset_border
-                and same_address
-                and yard.zones
-                and yard.zones.footprint_source == "user_adjusted_custom_border"
-            ):
-                parcel["zones"] = yard.zones.model_dump()
-                parcel["remembered_custom_border"] = True
-            elif (
-                not req.force_reset_border
-                and remembered_yard
-                and remembered_yard.zones
-                and remembered_yard.zones.footprint_source == "user_adjusted_custom_border"
-            ):
-                yard.zones = remembered_yard.zones
-                parcel["zones"] = remembered_yard.zones.model_dump()
-                parcel["remembered_custom_border"] = True
-            else:
-                yard.zones = ParcelZoneMap(**parcel["zones"])
-
-            store.save_yard(yard)
+    store = get_store()
+    saved_yard, remembered_custom = store.resolve_or_fork_yard_for_geocoded_parcel(
+        parcel=parcel,
+        requested_yard_id=req.apply_to_yard_id,
+        force_reset_border=req.force_reset_border,
+    )
+    parcel["yard_id"] = saved_yard.yard_id
+    parcel["yard"] = saved_yard.model_dump()
+    parcel["zones"] = saved_yard.zones.model_dump()
+    parcel["remembered_custom_border"] = remembered_custom
     return parcel
 
 
@@ -111,7 +88,7 @@ def list_saved_yards() -> List[YardMap]:
 
 @router.get("/{yard_id}", response_model=YardMap)
 def get_yard_by_id(yard_id: str) -> YardMap:
-    """Fetch a persisted YardMap including its adjusted border, 3m W3W squares, plants, and hose/safety analysis."""
+    """Fetch a persisted YardMap including its adjusted border, 3m W3W squares, plants, and spatial safety analysis."""
     yard = get_store().get_yard(yard_id)
     if not yard:
         raise HTTPException(status_code=404, detail=f"Yard '{yard_id}' not found")
@@ -120,7 +97,7 @@ def get_yard_by_id(yard_id: str) -> YardMap:
 
 @router.put("/{yard_id}", response_model=YardMap)
 def update_yard_map(yard_id: str, yard_update: YardMap) -> YardMap:
-    """Save full YardMap state (adjusted borders, spigots, waypoints, and planted items) to Firestore."""
+    """Save full YardMap state (adjusted borders, structures, and planted items) to Firestore."""
     yard_update.yard_id = yard_id
     return get_store().save_yard(yard_update)
 
@@ -144,12 +121,8 @@ def update_yard_borders_endpoint(yard_id: str, req: BorderUpdateRequest) -> Yard
 
 @router.post("/{yard_id}/analyze", response_model=YardSafetyAndHoseReport)
 def analyze_yard(yard_id: str, req: YardAnalysisRequest) -> YardSafetyAndHoseReport:
-    """Compute live garden hose reach, root-to-foundation/septic safety, canopy overhang, and sun compatibility."""
+    """Compute live root-to-foundation/septic safety, canopy overhang, and sun/USDA compatibility."""
     return analyze_yard_layout(
-        hose_length_ft=req.hose_length_ft,
-        spigot_s1=req.spigot_s1,
-        spigot_s2=req.spigot_s2,
-        hose_waypoints=req.hose_waypoints,
         zones=req.zones,
         plants=req.plants,
         usda_zone=req.usda_zone,
