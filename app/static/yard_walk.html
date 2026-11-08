@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-stone-900 text-stone-100 min-h-screen flex flex-col">
-  <header class="bg-emerald-950 border-b border-emerald-800/60 px-4 py-3 flex items-center justify-between">
+  <header class="bg-emerald-950 border-b border-emerald-800/60 px-4 py-3 flex items-center justify-between gap-2">
     <div class="flex items-center gap-2.5">
       <span class="text-xl">🌱</span>
       <div>
@@ -15,65 +15,197 @@
         <p class="text-[11px] text-emerald-300/80">Walk your yard with GPS, locate 3m W3W squares & log care offline</p>
       </div>
     </div>
-    <a href="/" class="px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-xs font-semibold text-white">
+    <a id="studioBackLink" href="/" class="px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-xs font-semibold text-white whitespace-nowrap">
       ← Full Yard Studio
     </a>
   </header>
 
   <main class="max-w-xl w-full mx-auto p-4 flex flex-col gap-3 flex-1">
-    <div class="rounded-2xl bg-stone-800/90 border border-stone-700 p-4 flex items-center justify-between">
-      <div>
-        <div id="walkYardAddress" class="text-xs text-emerald-300 font-semibold">Loading yard...</div>
-        <div id="walkSummary" class="text-sm font-bold text-white mt-0.5">3m × 3m What3Words Plant Checklist</div>
+    <div class="rounded-2xl bg-stone-800/90 border border-stone-700 p-4 flex flex-col gap-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div id="walkYardAddress" class="text-xs text-emerald-300 font-semibold truncate">Loading yard...</div>
+          <div id="walkSummary" class="text-sm font-bold text-white mt-0.5">3m × 3m What3Words Plant Checklist</div>
+        </div>
+        <button onclick="locateMeInYard()" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow whitespace-nowrap">
+          📍 GPS My Square
+        </button>
       </div>
-      <button onclick="locateMeInYard()" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow">
-        📍 GPS My Square
-      </button>
+
+      <div id="savedYardsBar" class="hidden pt-2 border-t border-stone-700/80 flex items-center gap-2">
+        <label for="walkYardSelect" class="text-[11px] text-stone-400 font-medium whitespace-nowrap">Saved Yard:</label>
+        <select id="walkYardSelect" onchange="switchWalkYard(this.value)" class="flex-1 min-w-0 rounded-lg bg-stone-900 border border-stone-700 px-2.5 py-1.5 text-xs text-stone-100 focus:outline-none focus:border-emerald-500"></select>
+      </div>
     </div>
 
     <div id="gpsSquareBanner" class="hidden rounded-xl bg-emerald-900/60 border border-emerald-500/40 p-3 text-xs"></div>
+
+    <div id="careToastBanner" class="hidden rounded-xl bg-sky-900/60 border border-sky-500/40 px-3 py-2 text-xs text-sky-100"></div>
 
     <div id="walkPlantsList" class="flex flex-col gap-2.5"></div>
   </main>
 
   <script>
+    const STORAGE_KEY_ACTIVE_YARD = "yardsquare_active_yard_id";
+    let activeYardId = getInitialYardId();
     let currentYard = null;
+    let savedYards = [];
+    let matchedGpsSquareLabel = null;
+
+    function escapeHtml(val) {
+      return String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function getInitialYardId() {
+      const params = new URLSearchParams(window.location.search);
+      const urlYard = params.get("yard") || params.get("yard_id");
+      if (urlYard && urlYard.trim()) return urlYard.trim();
+      return localStorage.getItem(STORAGE_KEY_ACTIVE_YARD) || "yard_default";
+    }
+
+    function persistActiveYardId(yardId) {
+      if (!yardId) return;
+      activeYardId = yardId;
+      localStorage.setItem(STORAGE_KEY_ACTIVE_YARD, yardId);
+      const studioHref = yardId === "yard_default" ? "/" : `/?yard=${encodeURIComponent(yardId)}`;
+      const backLink = document.getElementById("studioBackLink");
+      if (backLink) backLink.href = studioHref;
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("yard_id");
+        if (yardId === "yard_default") {
+          url.searchParams.delete("yard");
+        } else {
+          url.searchParams.set("yard", yardId);
+        }
+        window.history.replaceState({}, "", url.toString());
+      } catch (e) {}
+    }
+
+    function renderSavedYardsPicker() {
+      const bar = document.getElementById("savedYardsBar");
+      const sel = document.getElementById("walkYardSelect");
+      if (!bar || !sel || savedYards.length <= 1) {
+        if (bar) bar.classList.add("hidden");
+        return;
+      }
+      bar.classList.remove("hidden");
+      sel.innerHTML = savedYards.map(y => {
+        const label = y.yard_name || y.street_address || y.yard_id;
+        const selected = y.yard_id === activeYardId ? "selected" : "";
+        return `<option value="${escapeHtml(y.yard_id)}" ${selected}>🏡 ${escapeHtml(label)}</option>`;
+      }).join("");
+    }
 
     async function loadWalkView() {
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/static/sw.js").catch(() => {});
       }
-      const resp = await fetch("/api/v1/yard/yard_default");
+
+      try {
+        const listResp = await fetch("/api/v1/yard/list");
+        if (listResp.ok) {
+          savedYards = await listResp.json();
+          if (savedYards.length > 0 && !savedYards.some(y => y.yard_id === activeYardId)) {
+            activeYardId = savedYards[0].yard_id || "yard_default";
+          }
+        }
+      } catch (e) {}
+
+      persistActiveYardId(activeYardId);
+      await fetchAndRenderActiveYard();
+    }
+
+    async function switchWalkYard(nextYardId) {
+      if (!nextYardId) return;
+      matchedGpsSquareLabel = null;
+      document.getElementById("gpsSquareBanner").classList.add("hidden");
+      persistActiveYardId(nextYardId);
+      await fetchAndRenderActiveYard();
+    }
+
+    async function fetchAndRenderActiveYard() {
+      let resp = await fetch(`/api/v1/yard/${encodeURIComponent(activeYardId)}`);
+      if (!resp.ok && activeYardId !== "yard_default") {
+        persistActiveYardId("yard_default");
+        resp = await fetch("/api/v1/yard/yard_default");
+      }
+      if (!resp.ok) {
+        document.getElementById("walkYardAddress").textContent = "Unable to load yard offline";
+        return;
+      }
       currentYard = await resp.json();
+      renderSavedYardsPicker();
       document.getElementById("walkYardAddress").textContent =
         `${currentYard.street_address} · USDA Zone ${currentYard.usda_zone}`;
       document.getElementById("walkSummary").textContent =
-        `${currentYard.plants.length} Planted Trees, Shrubs & Beds`;
+        `${(currentYard.plants || []).length} Planted Trees, Shrubs & Beds`;
       renderWalkList();
     }
 
     function renderWalkList() {
       const el = document.getElementById("walkPlantsList");
-      el.innerHTML = (currentYard.plants || []).map(p => `
-        <div class="rounded-2xl bg-stone-800 border border-stone-700 p-3.5 flex flex-col gap-2">
-          <div class="flex items-start justify-between">
-            <div>
-              <div class="font-bold text-sm text-white">${p.emoji} ${p.nickname || p.common_name}</div>
-              <div class="text-xs text-emerald-400 font-mono">${p.square.label} [${p.sub_slot}] · ${p.square.w3w || ""}</div>
+      const plants = currentYard?.plants || [];
+      if (plants.length === 0) {
+        const studioHref = activeYardId === "yard_default" ? "/" : `/?yard=${encodeURIComponent(activeYardId)}`;
+        el.innerHTML = `
+          <div class="rounded-2xl bg-stone-800/70 border border-stone-700 p-5 text-center flex flex-col items-center gap-2">
+            <div class="text-2xl">🪴</div>
+            <div class="text-sm font-semibold text-stone-200">No plants placed in this yard yet</div>
+            <p class="text-xs text-stone-400">Open Full Yard Studio to place trees, shrubs, or 3×3 beds onto your 3m What3Words grid.</p>
+            <a href="${studioHref}" class="mt-1 px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-xs font-semibold text-white">
+              Open Yard Studio →
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      el.innerHTML = plants.map(p => {
+        const isHere = matchedGpsSquareLabel && p.square?.label === matchedGpsSquareLabel;
+        const ringCls = isHere
+          ? "border-amber-400 ring-1 ring-amber-400/50 bg-stone-800"
+          : "border-stone-700 bg-stone-800";
+        const lastCare = (p.care_logs && p.care_logs.length > 0)
+          ? p.care_logs[p.care_logs.length - 1]
+          : null;
+        const lastCareBadge = lastCare
+          ? `<div class="text-[11px] text-stone-400">Last care: <span class="text-emerald-300 font-medium">${escapeHtml(lastCare.action)}</span></div>`
+          : "";
+        const hereBadge = isHere
+          ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 font-semibold">📍 Here Now</span>`
+          : "";
+
+        return `
+          <div class="rounded-2xl border ${ringCls} p-3.5 flex flex-col gap-2">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="font-bold text-sm text-white flex items-center gap-1.5 flex-wrap">
+                  <span>${escapeHtml(p.emoji)} ${escapeHtml(p.nickname || p.common_name)}</span>
+                  ${hereBadge}
+                </div>
+                <div class="text-xs text-emerald-400 font-mono">${escapeHtml(p.square?.label || "")} [${escapeHtml(p.sub_slot)}] · ${escapeHtml(p.square?.w3w || "")}</div>
+                ${lastCareBadge}
+              </div>
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-700 text-stone-200 whitespace-nowrap">${escapeHtml(p.health_status)}</span>
             </div>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-700 text-stone-200">${p.health_status}</span>
+            <div class="flex items-center gap-2 pt-1">
+              <button onclick="quickCare('${escapeHtml(p.plant_id)}', 'watered')" class="flex-1 py-1.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-xs font-semibold">💧 Watered</button>
+              <button onclick="quickCare('${escapeHtml(p.plant_id)}', 'pruned')" class="flex-1 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-xs font-semibold">✂️ Pruned</button>
+              <button onclick="quickCare('${escapeHtml(p.plant_id)}', 'harvested')" class="flex-1 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-600 text-xs font-semibold">🧺 Harvest</button>
+            </div>
           </div>
-          <div class="flex items-center gap-2 pt-1">
-            <button onclick="quickCare('${p.plant_id}', 'watered')" class="flex-1 py-1.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-xs font-semibold">💧 Watered</button>
-            <button onclick="quickCare('${p.plant_id}', 'pruned')" class="flex-1 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-xs font-semibold">✂️ Pruned</button>
-            <button onclick="quickCare('${p.plant_id}', 'harvested')" class="flex-1 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-600 text-xs font-semibold">🧺 Harvest</button>
-          </div>
-        </div>
-      `).join("");
+        `;
+      }).join("");
     }
 
     async function quickCare(plantId, action) {
-      const resp = await fetch(`/api/v1/yard/yard_default/plants/${plantId}/care`, {
+      const resp = await fetch(`/api/v1/yard/${encodeURIComponent(activeYardId)}/plants/${encodeURIComponent(plantId)}/care`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -81,29 +213,46 @@
       if (resp.ok) {
         currentYard = await resp.json();
         renderWalkList();
+        const toast = document.getElementById("careToastBanner");
+        toast.textContent = `✅ Logged '${action}' on ${currentYard.street_address}`;
+        toast.classList.remove("hidden");
+        setTimeout(() => toast.classList.add("hidden"), 3000);
       }
     }
 
     function locateMeInYard() {
-      if (!navigator.geolocation || !currentYard) return;
-      navigator.geolocation.getCurrentPosition(async pos => {
-        const resp = await fetch("/api/v1/yard/gps-to-square", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            parcel_center_lat: currentYard.parcel_center_lat,
-            parcel_center_lng: currentYard.parcel_center_lng,
-            user_lat: pos.coords.latitude,
-            user_lng: pos.coords.longitude,
-          }),
-        });
-        if (resp.ok) {
-          const sq = await resp.json();
-          const banner = document.getElementById("gpsSquareBanner");
-          banner.textContent = `📍 Standing in 3m Square ${sq.label} (${sq.w3w}) at ${sq.lat}, ${sq.lng}`;
+      const banner = document.getElementById("gpsSquareBanner");
+      if (!navigator.geolocation || !currentYard) {
+        banner.textContent = "⚠️ Browser GPS is unavailable on this device.";
+        banner.classList.remove("hidden");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          const resp = await fetch("/api/v1/yard/gps-to-square", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              parcel_center_lat: currentYard.parcel_center_lat,
+              parcel_center_lng: currentYard.parcel_center_lng,
+              user_lat: pos.coords.latitude,
+              user_lng: pos.coords.longitude,
+            }),
+          });
+          if (resp.ok) {
+            const sq = await resp.json();
+            matchedGpsSquareLabel = sq.label;
+            banner.textContent = `📍 Standing in 3m Square ${sq.label} (${sq.w3w}) at ${sq.lat}, ${sq.lng}`;
+            banner.classList.remove("hidden");
+            renderWalkList();
+          }
+        },
+        () => {
+          banner.textContent = "⚠️ Location permission denied — enable GPS to highlight your 3m square.";
           banner.classList.remove("hidden");
-        }
-      });
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
     }
 
     loadWalkView();

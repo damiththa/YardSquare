@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YardSquare — Living 3m×3m What3Words Yard & Botanical Companion</title>
+  <title>YardSquare — Your Living Yard & Garden Companion</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-cream: #f7f5ef;
-      --botanical-dark: #132a1e;
+      --bg-cream: #f6f4ee;
+      --botanical-dark: #142c20;
       --botanical-emerald: #1b4332;
     }
     body {
@@ -34,9 +34,9 @@
       position: relative;
       border-radius: 0.85rem;
       overflow: hidden;
-      box-shadow: inset 0 0 0 1px rgba(20, 83, 45, 0.25);
+      box-shadow: inset 0 0 0 1px rgba(20, 83, 45, 0.2);
     }
-    /* Seasonal Lawn Backdrops */
+    /* Seasonal Lawn Backdrops (when Aerial Photo is toggled off) */
     .season-spring {
       background: radial-gradient(circle at 35% 30%, #d9f99d 0%, #86efac 52%, #4ade80 100%);
     }
@@ -49,6 +49,7 @@
     .season-winter {
       background: radial-gradient(circle at 35% 30%, #f1f5f9 0%, #e2e8f0 55%, #cbd5e1 100%);
     }
+    /* Whisper-Thin Satellite Underlay Styles */
     .satellite-underlay {
       background: transparent !important;
     }
@@ -90,31 +91,29 @@
     .svg-handle-interactive {
       pointer-events: all;
       cursor: grab;
-      transition: transform 0.1s ease;
     }
     .svg-handle-interactive:active {
       cursor: grabbing;
     }
     .grid-cell {
-      border: 1px solid rgba(255, 255, 255, 0.22);
+      border: 0.5px solid rgba(255, 255, 255, 0.24);
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: transform 0.08s ease, background-color 0.12s ease, box-shadow 0.12s ease;
-      font-size: 0.68rem;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
     }
     .grid-cell:hover {
-      z-index: 25;
+      z-index: 20;
       box-shadow: inset 0 0 0 2px #fef08a, 0 2px 6px rgba(0,0,0,0.18);
-      transform: scale(1.06);
+      transform: scale(1.05);
     }
     .grid-cell.selected-cell {
       z-index: 30;
       box-shadow: inset 0 0 0 2.5px #f59e0b, 0 0 0 2px rgba(245, 158, 11, 0.35);
     }
-    /* Land Zone Cell Styles */
+    /* Land Zone Cell Styles (Schematic Mode) */
     .cell-house {
       background: repeating-linear-gradient(45deg, #7c2d12, #7c2d12 5px, #9a3412 5px, #9a3412 10px);
       color: #ffedd5;
@@ -163,383 +162,571 @@
       background: rgba(30, 58, 138, 0.14);
       pointer-events: none;
     }
+    @keyframes gentlePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35); }
+      50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    }
+    .highlight-pulse {
+      animation: gentlePulse 1.1s ease-in-out 2;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- Top Botanical Header -->
-  <header class="bg-[#132a1e] text-stone-100 border-b border-emerald-900/60 sticky top-0 z-40 shadow-md">
+  <!-- Calm, Warm Botanical Top Header -->
+  <header class="bg-[#142c20] text-stone-100 border-b border-emerald-900/50 sticky top-0 z-40 shadow-sm">
     <div class="max-w-[1440px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-xl shadow-inner">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center text-lg shadow-inner shrink-0">
           🌳
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="font-serif-display text-lg sm:text-xl font-bold tracking-tight text-emerald-50">YardSquare</h1>
-            <span id="envBadge" class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded-full bg-emerald-800/90 text-emerald-200 border border-emerald-600/50">DEV · GCP TIER-1 ($0)</span>
-            <span id="usdaBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/40">🌡️ Zone 5a (-20°F to -15°F)</span>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="font-serif-display text-lg font-bold tracking-tight text-emerald-50">YardSquare</h1>
+            <span id="usdaBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-400/15 text-amber-200 border border-amber-300/30">
+              🌡️ Zone 5a
+            </span>
+            <span id="cloudMemoryBadge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-200 border border-emerald-700/60">
+              ☁️ Saved
+            </span>
           </div>
-          <p class="text-xs text-emerald-200/80">3m × 3m What3Words Property Grid · Interactive Land Border · Botanical & Canopy Companion</p>
+          <p id="headerActiveAddress" class="text-[11px] text-emerald-200/75 truncate max-w-[340px] sm:max-w-[460px]">
+            742 Evergreen Terrace, Montpelier, VT 05602
+          </p>
         </div>
       </div>
 
-      <!-- Quick Links & Season / Canopy Time-Travel Controls -->
+      <!-- Right Controls: Season, Canopy Time-Travel & Mobile Walk -->
       <div class="flex flex-wrap items-center gap-2">
-        <!-- Season Switcher -->
-        <div class="inline-flex rounded-lg bg-emerald-950/90 p-0.5 border border-emerald-800/80 text-xs">
-          <button onclick="setSeason('spring')" id="btnSeason-spring" class="px-2.5 py-1 rounded-md transition">🌸 Spring</button>
-          <button onclick="setSeason('summer')" id="btnSeason-summer" class="px-2.5 py-1 rounded-md bg-emerald-600 text-white font-semibold transition">☀️ Summer</button>
-          <button onclick="setSeason('autumn')" id="btnSeason-autumn" class="px-2.5 py-1 rounded-md transition">🍂 Autumn</button>
-          <button onclick="setSeason('winter')" id="btnSeason-winter" class="px-2.5 py-1 rounded-md transition">❄️ Winter</button>
+        <div class="inline-flex rounded-xl bg-emerald-950/80 p-0.5 border border-emerald-800/70 text-xs" title="Preview seasonal foliage colors">
+          <button onclick="setSeason('spring')" id="btnSeason-spring" class="px-2 py-1 rounded-lg text-emerald-100/80 hover:text-white transition">🌸 <span class="hidden sm:inline">Spring</span></button>
+          <button onclick="setSeason('summer')" id="btnSeason-summer" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-semibold transition">☀️ <span class="hidden sm:inline">Summer</span></button>
+          <button onclick="setSeason('autumn')" id="btnSeason-autumn" class="px-2 py-1 rounded-lg text-emerald-100/80 hover:text-white transition">🍂 <span class="hidden sm:inline">Autumn</span></button>
+          <button onclick="setSeason('winter')" id="btnSeason-winter" class="px-2 py-1 rounded-lg text-emerald-100/80 hover:text-white transition">❄️ <span class="hidden sm:inline">Winter</span></button>
         </div>
 
-        <!-- Canopy Growth Time-Travel -->
-        <div class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-950/90 px-2.5 py-1 border border-emerald-800/80 text-xs">
-          <span class="text-emerald-300 font-medium">Canopy:</span>
+        <div class="inline-flex items-center gap-1 rounded-xl bg-emerald-950/80 px-2.5 py-1 border border-emerald-800/70 text-xs" title="Preview how wide your trees & shrubs will grow">
+          <span class="text-emerald-300/90 hidden md:inline">Growth:</span>
           <select id="canopyStageSelect" onchange="setCanopyGrowthStage(this.value)" class="bg-transparent text-emerald-100 font-semibold focus:outline-none cursor-pointer">
-            <option value="0.45" class="bg-stone-900">🌱 Today (Current)</option>
-            <option value="0.75" class="bg-stone-900">🌿 +5 Years</option>
-            <option value="1.0" selected class="bg-stone-900">🌳 +15 Yrs (Mature)</option>
+            <option value="0.45" class="bg-stone-900">🌱 Today</option>
+            <option value="0.75" class="bg-stone-900">🌿 +5 Yrs</option>
+            <option value="1.0" selected class="bg-stone-900">🌳 Mature (+15 Yrs)</option>
           </select>
         </div>
 
-        <a href="/architecture" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-emerald-200 border border-stone-600 transition flex items-center gap-1">
-          📐 Archify Diagram
+        <a id="walkModeLink" href="/walk" class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white transition flex items-center gap-1 shadow-sm" title="Open GPS Backyard Walk Mode on your phone">
+          📱 Walk Yard
+        </a>
+
+        <a href="/architecture" class="text-xs px-2.5 py-1.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900 text-emerald-200/80 hover:text-white border border-emerald-800/60 transition" title="View Archify System Architecture">
+          📐
         </a>
       </div>
     </div>
   </header>
 
   <!-- Main Workspace -->
-  <main class="max-w-[1440px] w-full mx-auto px-4 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4">
+  <main class="max-w-[1440px] w-full mx-auto px-4 py-4 flex-1 flex flex-col gap-3.5">
 
-    <!-- LEFT COLUMN (8 cols): Address Bar, Mode Toolbar & Interactive 3m x 3m W3W Property Grid -->
-    <section class="lg:col-span-8 flex flex-col gap-3">
+    <!-- Guided 1 → 2 → 3 Stepper Bar -->
+    <nav aria-label="Yard setup steps" class="bg-white rounded-2xl p-2 shadow-sm border border-stone-200/90 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-1.5 flex-1">
+        <button onclick="setActiveStep(1)" id="stepTab-1" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition">
+          <span id="stepNum-1" class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold">1</span>
+          <div class="text-left">
+            <div class="leading-tight">Find Home</div>
+            <div class="text-[10px] font-normal opacity-75 hidden sm:block">Address & aerial view</div>
+          </div>
+        </button>
 
-      <!-- Step 1: Address Search, Saved Properties & Remembered Fence/Land Footprint Bar -->
-      <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/90 flex flex-col gap-2.5">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center">1</span>
-            <h2 class="text-sm font-bold text-stone-800">Property Address & Remembered Yard Border</h2>
-            <span id="footprintSourceBadge" class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
-              OSM Building + Adjustable Border
-            </span>
-            <span id="cloudMemoryBadge" class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-900 border border-emerald-300 font-semibold">
-              🟢 Remembered in Cloud
-            </span>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 text-xs">
-            <select id="savedYardsSelect" onchange="switchSavedYard(this.value)" title="Switch between remembered yards in Cloud Firestore" class="px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-300 text-stone-800 font-semibold focus:outline-none">
-              <option value="yard_default">🏡 Evergreen Terrace Sanctuary</option>
-            </select>
-            <button onclick="saveAsNewProperty()" class="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 font-semibold transition" title="Save current address & fence border as a separate remembered property">
-              + New Property
-            </button>
-            <button onclick="saveYardToCloud()" id="btnSaveYard" class="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm transition">
-              💾 Save Fence & Yard
-            </button>
-          </div>
-        </div>
+        <span class="text-stone-300 text-xs select-none">→</span>
 
-        <div class="relative flex flex-col sm:flex-row gap-2">
-          <div class="relative flex-1">
-            <input
-              id="addressInput"
-              type="text"
-              value="742 Evergreen Terrace, Montpelier, VT 05602"
-              placeholder="Type your street address (e.g. 742 Evergreen Terrace, Montpelier, VT)..."
-              autocomplete="off"
-              class="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-            />
-            <div id="autocompleteDropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-stone-200 z-50 overflow-hidden"></div>
+        <button onclick="setActiveStep(2)" id="stepTab-2" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition">
+          <span id="stepNum-2" class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold">2</span>
+          <div class="text-left">
+            <div class="leading-tight">Shape Yard</div>
+            <div class="text-[10px] font-normal opacity-75 hidden sm:block">Lot fence & buildings</div>
           </div>
-          <button onclick="lookupTypedAddress()" class="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold whitespace-nowrap transition">
-            🔍 Fetch Land & Grid
-          </button>
-        </div>
+        </button>
+
+        <span class="text-stone-300 text-xs select-none">→</span>
+
+        <button onclick="setActiveStep(3)" id="stepTab-3" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition">
+          <span id="stepNum-3" class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold">3</span>
+          <div class="text-left">
+            <div class="leading-tight">Plant & Care</div>
+            <div class="text-[10px] font-normal opacity-75 hidden sm:block">Trees, beds & watering</div>
+          </div>
+        </button>
       </div>
 
-      <!-- Step 2: Interactive Mode Toolbar & Sub-Palettes -->
-      <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/90 flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="setInteractionMode('inspect')" id="modeBtn-inspect" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-emerald-800 text-white border-emerald-900 shadow-sm">
-              🔍 Inspect & Care (3×3 Square)
-            </button>
-            <button onclick="setInteractionMode('border')" id="modeBtn-border" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-amber-50">
-              🪵 Adjust Fence, Border & Structures
-            </button>
-            <button onclick="setInteractionMode('plant')" id="modeBtn-plant" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-emerald-50">
-              🌱 Plant Trees / Shrubs / Beds
-            </button>
-          </div>
+      <!-- Quick Property Switcher (Always handy on the right of the stepper) -->
+      <div class="flex items-center gap-2 px-1">
+        <select id="savedYardsSelect" onchange="switchSavedYard(this.value)" title="Switch between your saved properties" class="max-w-[230px] truncate px-2.5 py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200 text-xs text-stone-700 font-semibold focus:outline-none cursor-pointer">
+          <option value="yard_default">🏡 Evergreen Terrace</option>
+        </select>
+      </div>
+    </nav>
 
-          <!-- Map Visual Layer Checkboxes -->
-          <div class="flex flex-wrap items-center gap-3 text-xs text-stone-600">
-            <label class="inline-flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" id="chkCanopy" checked onchange="renderGrid()" class="rounded text-emerald-700" />
-              <span>🌳 Canopy Rings</span>
-            </label>
-            <label class="inline-flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" id="chkSunShade" onchange="renderGrid()" class="rounded text-amber-600" />
-              <span>☀️ Sun/Shade</span>
-            </label>
-            <label class="inline-flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" id="chkSatellite" checked onchange="renderGrid()" class="rounded text-stone-700" />
-              <span>🛰️ Live Aerial Property View</span>
-            </label>
-          </div>
-        </div>
+    <!-- Two-Column Studio Grid: Spacious Map (Left 8 cols) + Tabbed Garden Companion (Right 4 cols) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
-        <!-- Dynamic Sub-Toolbar: Plant Species Picker (Shown in 'plant' mode) -->
-        <div id="subToolbar-plant" class="hidden bg-emerald-50/70 rounded-xl p-2.5 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-2 flex-1">
-            <span class="text-xs font-bold text-emerald-950">Select Species to Plant:</span>
-            <select id="speciesPickerSelect" onchange="onSpeciesPickerChange()" class="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-xs font-semibold text-stone-800 focus:outline-none">
-            </select>
-            <span class="text-xs font-bold text-emerald-950 ml-1">3×3 Sub-Slot:</span>
-            <select id="subSlotPickerSelect" class="px-2.5 py-1.5 rounded-lg bg-white border border-emerald-300 text-xs font-mono-code font-semibold text-stone-800">
-              <option value="C">Center (C) — Full 3m Square</option>
-              <option value="NW">NW (Top-Left 1m)</option>
-              <option value="N">N (Top-Mid 1m)</option>
-              <option value="NE">NE (Top-Right 1m)</option>
-              <option value="W">W (Mid-Left 1m)</option>
-              <option value="E">E (Mid-Right 1m)</option>
-              <option value="SW">SW (Bot-Left 1m)</option>
-              <option value="S">S (Bot-Mid 1m)</option>
-              <option value="SE">SE (Bot-Right 1m)</option>
-            </select>
-          </div>
-          <span id="selectedSpeciesHint" class="text-[11px] text-emerald-900 font-medium">
-            Click any green yard square on the grid to plant!
-          </span>
-        </div>
+      <!-- LEFT COLUMN (8 cols): Contextual Step Panel + Aerial Property Canvas -->
+      <section class="lg:col-span-8 flex flex-col gap-3">
 
-        <!-- Dynamic Sub-Toolbar: Fence & Property Border Designer (Shown in 'border' mode) -->
-        <div id="subToolbar-border" class="hidden bg-amber-50/90 rounded-xl p-3 border border-amber-300 flex flex-col gap-2.5">
-          <!-- Row 1: Point-to-Point Polygon, Draggable Corner Handles & Land Zone Brushes -->
+        <!-- STEP 1 PANEL: Find Your Home -->
+        <div id="stepPanel-1" class="hidden bg-white rounded-2xl p-4 shadow-sm border border-stone-200/90 flex flex-col gap-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-xs font-bold text-amber-950 mr-1">1. Boundary & Structure Tool:</span>
-              <button onclick="setBorderBrush('polygon_edit')" id="brushBtn-polygon_edit" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-800 text-white shadow-sm" title="Drag corner handles (P1, P2...) on the grid to reshape your boundary, or click any midpoint (+) to add a corner for L-shaped/angled lots">
-                📍 Drag Corners & Reshape (● Handles)
-              </button>
-              <button onclick="startNewPolygonDraw()" id="brushBtn-polygon_draw" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click corner by corner (P1 → P2 → P3...) on the 3m grid with a live ft/m tape measure to draw any custom angled or L-shaped boundary">
-                ✏️ Click-to-Draw Polygon (Point-to-Point)
-              </button>
-              <button onclick="setBorderBrush('fence_box')" id="brushBtn-fence_box" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click and drag from one corner square to another to draw a rectangular property fence">
-                📐 Drag Rectangle Box
-              </button>
-              <button onclick="setBorderBrush('fence_border')" id="brushBtn-fence_border" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag individual 3m squares to paint custom fence lines">
-                🪵 Paint Fence Line
-              </button>
-              <button onclick="setBorderBrush('yard')" id="brushBtn-yard" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Erase structures or fence into open plantable lawn">
-                🌿 Lawn / Erase
-              </button>
-              <button onclick="setBorderBrush('house_roof')" id="brushBtn-house_roof" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag a rectangle box to place your House Roof footprint">
-                🏠 House Roof
-              </button>
-              <button onclick="setBorderBrush('garage_shed')" id="brushBtn-garage_shed" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag a rectangle box to place your Garage or Shed footprint">
-                🛖 Garage / Shed
-              </button>
-              <button onclick="setBorderBrush('driveway_patio')" id="brushBtn-driveway_patio" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300" title="Click or drag a rectangle box to place your Driveway or Patio">
-                🧱 Patio / Driveway
-              </button>
-              <button onclick="setBorderBrush('septic_utility')" id="brushBtn-septic_utility" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
-                ⚠️ Septic / Utility
-              </button>
-              <button onclick="setBorderBrush('out_of_bounds')" id="brushBtn-out_of_bounds" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300">
-                🚫 Outside Lot
-              </button>
+            <div>
+              <h2 class="text-sm font-bold text-stone-800">🏡 Where is your yard located?</h2>
+              <p class="text-xs text-stone-500">Enter your street address — we'll load your aerial photo, hardiness zone, and building outlines automatically.</p>
             </div>
-            <span id="fenceLotDimensionsBadge" class="text-[11px] font-mono-code font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-950 border border-amber-300">
-              🪵 4 Corners · 197 ft × 157 ft (60m × 48m)
+            <span id="footprintSourceBadge" class="text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
+              🛰️ Auto-mapped from aerial & LiDAR
             </span>
           </div>
 
-          <!-- Active Point-to-Point Polygon Drawing Helper Bar (Shown when clicking corners) -->
-          <div id="polygonDrawActiveBar" class="hidden bg-amber-100/90 rounded-lg px-3 py-1.5 border border-amber-400 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-amber-950" id="polygonDrawStatusText">
-                ✏️ Click any 3m square on the grid to place Corner P1 (then P2, P3... for angled or L-shaped boundaries).
-              </span>
+          <div class="relative flex flex-col sm:flex-row gap-2">
+            <div class="relative flex-1">
+              <input
+                id="addressInput"
+                type="text"
+                value="742 Evergreen Terrace, Montpelier, VT 05602"
+                placeholder="Search street address (e.g. 124 Maple St, Burlington, VT)..."
+                autocomplete="off"
+                onkeydown="if (event.key === 'Enter') lookupTypedAddress()"
+                class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+              />
+              <div id="autocompleteDropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-stone-200 z-50 overflow-hidden"></div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="undoLastPolygonDraftVertex()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 text-stone-800 border border-amber-300 font-semibold">
-                ↩ Undo Last Point
-              </button>
-              <button onclick="finishPolygonDraw()" id="btnFinishPolygonDraw" class="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm">
-                ✓ Complete & Lock Polygon
-              </button>
-              <button onclick="cancelPolygonDraw()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
-                ✕ Cancel
-              </button>
-            </div>
+            <button onclick="lookupTypedAddress()" class="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold whitespace-nowrap shadow-sm transition">
+              🔍 Load My Yard
+            </button>
           </div>
 
-          <!-- Row 2: Shape Presets, 1-Click Fence Perimeter Nudge & Reset Controls -->
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-200/80 text-xs">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-bold text-amber-950">2. Shape Presets & Quick Nudge:</span>
-              <button onclick="applyLShapedPreset()" class="px-2.5 py-0.5 rounded-lg bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 font-semibold transition" title="Convert boundary into a 6-corner L-shaped yard that you can drag and customize">
-                📐 L-Shaped Lot (6 Corners)
-              </button>
-              <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
-                <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">West</span>
-                <button onclick="nudgeFencePerimeter('west', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Expand West fence outward">◀ Out</button>
-                <button onclick="nudgeFencePerimeter('west', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Move West fence inward">In ▶</button>
-              </div>
-              <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
-                <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">East</span>
-                <button onclick="nudgeFencePerimeter('east', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Move East fence inward">◀ In</button>
-                <button onclick="nudgeFencePerimeter('east', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Expand East fence outward">Out ▶</button>
-              </div>
-              <div class="inline-flex items-center rounded-lg bg-white border border-amber-300 overflow-hidden">
-                <span class="px-2 py-0.5 bg-amber-100/70 text-amber-950 font-semibold text-[11px]">North</span>
-                <button onclick="nudgeFencePerimeter('north', -1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold" title="Expand North (back) fence outward">▲ Out</button>
-                <button onclick="nudgeFencePerimeter('north', 1)" class="px-2 py-0.5 hover:bg-amber-50 font-bold border-l border-amber-200" title="Move North (back) fence inward">In ▼</button>
-              </div>
-              <button onclick="clearStructuresOnLot()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold transition" title="Clear House, Garage & Driveway cells so you can drag-box them fresh over the Live Aerial Property View">
-                🧹 Clear Structures
-              </button>
-              <button onclick="resetFenceToDefaultFootprint()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold transition">
-                🔄 Reset Default
-              </button>
-            </div>
-            <span class="text-[11px] text-amber-900 font-medium">
-              💡 Tip: Drag <strong>P1..Pn</strong> corners, click <strong>+</strong> midpoints, or drag a box with <strong>🏠 House / 🛖 Garage / 🧱 Driveway</strong>!
-            </span>
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-stone-100 text-xs">
+            <button onclick="saveAsNewProperty()" class="text-stone-600 hover:text-stone-900 font-medium hover:underline">
+              + Save a copy as a separate yard layout
+            </button>
+            <button onclick="setActiveStep(2)" class="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold transition">
+              Next: Shape Yard →
+            </button>
           </div>
         </div>
 
-        <!-- Interactive 26 x 18 (3m x 3m) W3W Grid Canvas -->
-        <div class="relative">
-          <!-- Compass & Scale Bar -->
-          <div class="flex flex-wrap items-center justify-between text-[11px] text-stone-500 mb-1.5 px-1 gap-2">
-            <div class="flex flex-wrap items-center gap-3">
-              <span class="font-semibold text-stone-700">🧭 North ↑</span>
-              <span>Grid: <strong>26 × 18</strong> squares (78m × 54m / ~256 ft × 177 ft)</span>
-              <span id="gridFootprintSourceBadge" class="px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 border border-emerald-300 font-semibold text-[10px]">
-                🛰️ FEMA + OSM + Satellite Auto-Plot
-              </span>
+        <!-- STEP 2 PANEL: Shape Yard (Clean 2 Sub-Tabs: 'Lot Fence' vs 'Structures') -->
+        <div id="stepPanel-2" class="hidden bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/90 flex flex-col gap-3">
+          <!-- Sub-Tab Header -->
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
+            <div class="inline-flex rounded-xl bg-stone-100 p-1 gap-1">
+              <button onclick="setBorderSubTab('fence')" id="borderSubTabBtn-fence" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-stone-900 shadow-sm">
+                🪵 Lot Fence
+              </button>
+              <button onclick="setBorderSubTab('structures')" id="borderSubTabBtn-structures" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900">
+                🏠 Buildings & Driveway
+              </button>
             </div>
-            <div id="hoverCellReadout" class="font-mono-code text-xs text-emerald-800 font-semibold">
-              Hover a square for ///what.three.words
+
+            <div class="flex items-center gap-2">
+              <span id="fenceLotDimensionsBadge" class="text-[11px] font-mono-code font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200">
+                4 Corners · ~30,900 sq ft
+              </span>
+              <button onclick="setActiveStep(3)" class="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm transition">
+                Looks Good · Start Planting →
+              </button>
             </div>
           </div>
 
-          <!-- The Grid Board + Live Aerial Underlay + SVG Polygon/Canopy Overlay -->
-          <div id="gridWrapper" class="relative rounded-xl overflow-hidden shadow-md border border-emerald-950/20">
+          <!-- Sub-Tab 2A: Lot Fence Tools -->
+          <div id="borderSubPanel-fence" class="flex flex-col gap-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button onclick="setBorderBrush('polygon_edit')" id="brushBtn-polygon_edit" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  📍 Move Corners
+                </button>
+                <button onclick="startNewPolygonDraw()" id="brushBtn-polygon_draw" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  ✏️ Draw Shape
+                </button>
+                <button onclick="setBorderBrush('fence_box')" id="brushBtn-fence_box" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  📐 Drag Rectangle
+                </button>
+                <button onclick="applyLShapedPreset()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-100 hover:bg-amber-50 text-stone-700 border border-stone-200 transition" title="Start from a 6-corner L-shaped lot and drag corners to fit">
+                  L-Shape Preset
+                </button>
+              </div>
+
+              <!-- Tucked-away Fine Nudge & Reset Controls -->
+              <details class="relative text-xs">
+                <summary class="cursor-pointer list-none px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200/80 text-stone-700 font-semibold select-none">
+                  Fine Adjust ▾
+                </summary>
+                <div class="absolute right-0 top-full mt-1.5 w-72 rounded-2xl bg-white shadow-xl border border-stone-200 p-3 z-40 flex flex-col gap-2.5">
+                  <div class="text-[11px] font-bold text-stone-700">Nudge Lot Edges (1 square = 10 ft):</div>
+                  <div class="flex flex-col gap-1.5 text-[11px]">
+                    <div class="flex items-center justify-between">
+                      <span class="text-stone-600 font-medium">West Side</span>
+                      <div class="inline-flex rounded-lg border border-stone-200 overflow-hidden">
+                        <button onclick="nudgeFencePerimeter('west', -1)" class="px-2 py-1 hover:bg-stone-100 font-semibold">◀ Out</button>
+                        <button onclick="nudgeFencePerimeter('west', 1)" class="px-2 py-1 hover:bg-stone-100 font-semibold border-l border-stone-200">In ▶</button>
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-stone-600 font-medium">East Side</span>
+                      <div class="inline-flex rounded-lg border border-stone-200 overflow-hidden">
+                        <button onclick="nudgeFencePerimeter('east', -1)" class="px-2 py-1 hover:bg-stone-100 font-semibold">◀ In</button>
+                        <button onclick="nudgeFencePerimeter('east', 1)" class="px-2 py-1 hover:bg-stone-100 font-semibold border-l border-stone-200">Out ▶</button>
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-stone-600 font-medium">Back (North)</span>
+                      <div class="inline-flex rounded-lg border border-stone-200 overflow-hidden">
+                        <button onclick="nudgeFencePerimeter('north', -1)" class="px-2 py-1 hover:bg-stone-100 font-semibold">▲ Out</button>
+                        <button onclick="nudgeFencePerimeter('north', 1)" class="px-2 py-1 hover:bg-stone-100 font-semibold border-l border-stone-200">In ▼</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="border-t border-stone-100 pt-2 flex flex-wrap gap-1.5">
+                    <button onclick="setBorderBrush('fence_border')" id="brushBtn-fence_border" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold border">
+                      🪵 Paint Fence Cell
+                    </button>
+                    <button onclick="setBorderBrush('out_of_bounds')" id="brushBtn-out_of_bounds" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold border">
+                      🚫 Outside Lot
+                    </button>
+                  </div>
+                  <button onclick="resetFenceToDefaultFootprint()" class="w-full py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-[11px] transition">
+                    🔄 Reset to Auto-Detected Lot
+                  </button>
+                </div>
+              </details>
+            </div>
+
+            <p class="text-[11px] text-stone-500">
+              💡 Drag orange <strong>P1–P4</strong> corner handles on the aerial photo to match your fence, or click any green <strong>+</strong> midpoint to add an extra corner.
+            </p>
+
+            <!-- Active Point-to-Point Polygon Drawing Helper Bar -->
+            <div id="polygonDrawActiveBar" class="hidden bg-amber-50 rounded-xl px-3 py-2 border border-amber-300 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span class="font-semibold text-amber-950" id="polygonDrawStatusText">
+                ✏️ Click on the map to place Corner P1 of your lot boundary.
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button onclick="undoLastPolygonDraftVertex()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-stone-800 border border-amber-300 font-semibold">
+                  ↩ Undo
+                </button>
+                <button onclick="finishPolygonDraw()" id="btnFinishPolygonDraw" class="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm">
+                  ✓ Finish Shape
+                </button>
+                <button onclick="cancelPolygonDraw()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Tab 2B: Structures & Zones -->
+          <div id="borderSubPanel-structures" class="hidden flex flex-col gap-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button onclick="setBorderBrush('house_roof')" id="brushBtn-house_roof" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  🏠 House
+                </button>
+                <button onclick="setBorderBrush('garage_shed')" id="brushBtn-garage_shed" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  🛖 Garage / Shed
+                </button>
+                <button onclick="setBorderBrush('driveway_patio')" id="brushBtn-driveway_patio" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  🧱 Driveway / Patio
+                </button>
+                <button onclick="setBorderBrush('septic_utility')" id="brushBtn-septic_utility" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  ⚠️ Septic / Utility
+                </button>
+                <button onclick="setBorderBrush('yard')" id="brushBtn-yard" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                  🌿 Erase to Lawn
+                </button>
+              </div>
+
+              <button onclick="clearStructuresOnLot()" class="px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-rose-50 text-stone-700 hover:text-rose-700 border border-stone-200 text-xs font-semibold transition" title="Clear house, garage & driveway markings to redraw over the aerial photo">
+                🧹 Clear Buildings
+              </button>
+            </div>
+            <p class="text-[11px] text-stone-500">
+              💡 Click and drag a box right over your roof, garage, or driveway on the aerial photo. Tree root & shade checks update automatically!
+            </p>
+          </div>
+        </div>
+
+        <!-- STEP 3 PANEL: Plant & Care -->
+        <div id="stepPanel-3" class="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/90 flex flex-wrap items-center justify-between gap-2.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="inline-flex rounded-xl bg-stone-100 p-1 gap-1">
+              <button onclick="setPlantStepAction('inspect')" id="plantActionBtn-inspect" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-emerald-950 shadow-sm">
+                👆 Explore & Care
+              </button>
+              <button onclick="setPlantStepAction('plant')" id="plantActionBtn-plant" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900">
+                🌱 Tap Map to Plant
+              </button>
+            </div>
+
+            <span id="step3HelperText" class="text-xs text-stone-600">
+              Click any square on your yard to inspect it, water plants, or pick a species on the right.
+            </span>
+          </div>
+
+          <!-- Active Planting Pill (Visible when 'Tap Map to Plant' is active) -->
+          <div id="activePlantBrushBar" class="hidden flex flex-wrap items-center gap-2 text-xs bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+            <span class="text-emerald-950 font-semibold" id="activePlantBrushLabel">🍎 Honeycrisp Apple Tree</span>
+            <select id="subSlotPickerSelect" onchange="selectSubSlot(this.value)" class="px-2 py-0.5 rounded-lg bg-white border border-emerald-300 text-[11px] font-semibold text-stone-800">
+              <option value="C">Center (Full Square)</option>
+              <option value="NW">NW Corner (1m)</option>
+              <option value="N">North Edge (1m)</option>
+              <option value="NE">NE Corner (1m)</option>
+              <option value="W">West Edge (1m)</option>
+              <option value="E">East Edge (1m)</option>
+              <option value="SW">SW Corner (1m)</option>
+              <option value="S">South Edge (1m)</option>
+              <option value="SE">SE Corner (1m)</option>
+            </select>
+            <button onclick="focusPlantCatalogInSidebar()" class="text-emerald-800 hover:underline font-semibold">
+              Change Plant →
+            </button>
+          </div>
+        </div>
+
+        <!-- Spacious Aerial Property Map Card -->
+        <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200/90 flex flex-col gap-2.5">
+          <!-- Calm Map Top Bar: Compass, Hover Readout & Visual Layer Toggles -->
+          <div class="flex flex-wrap items-center justify-between gap-2 px-0.5 text-xs">
+            <div class="flex items-center gap-2.5 text-stone-600">
+              <span class="font-semibold text-stone-800">🧭 North ↑</span>
+              <span class="text-stone-300">·</span>
+              <span id="hoverCellReadout" class="font-medium text-emerald-800">
+                Hover or tap any 10×10 ft (3×3m) square
+              </span>
+            </div>
+
+            <!-- Clean Map Layer Checkboxes -->
+            <div class="flex flex-wrap items-center gap-3 text-[11px] text-stone-600">
+              <label class="inline-flex items-center gap-1.5 cursor-pointer select-none hover:text-stone-900">
+                <input type="checkbox" id="chkSatellite" checked onchange="renderGrid()" class="rounded text-emerald-700" />
+                <span class="font-medium">🛰️ Aerial Photo</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer select-none hover:text-stone-900">
+                <input type="checkbox" id="chkCanopy" checked onchange="renderGrid()" class="rounded text-emerald-700" />
+                <span class="font-medium">🌳 Canopy</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer select-none hover:text-stone-900">
+                <input type="checkbox" id="chkSunShade" onchange="renderGrid()" class="rounded text-amber-600" />
+                <span class="font-medium">☀️ Shade</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- The 26 x 18 (3m x 3m) W3W Grid Board + Ultra-HD Aerial Underlay + SVG Overlay -->
+          <div id="gridWrapper" class="relative rounded-xl overflow-hidden shadow-md border border-emerald-950/15">
             <img id="aerialUnderlayImg" alt="" style="filter: contrast(1.07) saturate(1.06);" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none z-0" />
             <div id="yardGridBoard" class="yard-grid-board season-summer z-10"></div>
             <svg id="yardSvgOverlay" viewBox="0 0 260 180" class="absolute inset-0 w-full h-full pointer-events-none z-20"></svg>
+
+            <!-- Gentle Floating Toast Pill -->
+            <div id="saveStatusToast" class="hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-stone-900/90 text-white text-xs font-semibold shadow-lg backdrop-blur-sm pointer-events-none whitespace-nowrap"></div>
           </div>
 
-          <!-- Legend Bar -->
-          <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-600 px-1">
+          <!-- Minimal Legend Footer -->
+          <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500 px-0.5">
             <div class="flex flex-wrap items-center gap-3">
-              <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block cell-house"></span> House Roof</span>
-              <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block cell-garage"></span> Garage/Shed</span>
-              <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block cell-driveway"></span> Patio/Driveway</span>
-              <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block cell-fence"></span> Property Border/Fence</span>
-              <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block cell-septic"></span> Septic/Utility</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm inline-block cell-house"></span> House</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm inline-block cell-garage"></span> Garage/Shed</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm inline-block cell-driveway"></span> Driveway/Patio</span>
+              <span class="inline-flex items-center gap-1"><span class="w-3.5 h-0 border-t-2 border-dashed border-amber-500 inline-block"></span> Lot Line</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm inline-block cell-septic"></span> Septic/Utility</span>
             </div>
-            <span id="saveStatusToast" class="text-emerald-700 font-semibold"></span>
+            <span class="text-stone-400">26 × 18 grid · ~256 × 177 ft (78 × 54m)</span>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- RIGHT COLUMN (4 cols): 3x3 W3W Square Inspector, Plant Care Timeline & Spatial Yard Report -->
-    <aside class="lg:col-span-4 flex flex-col gap-3">
+      <!-- RIGHT COLUMN (4 cols): Clean 2-Tab Garden Companion ('Selected Square' | 'My Garden') -->
+      <aside class="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-stone-200/90 overflow-hidden flex flex-col">
 
-      <!-- Card 1: Selected 3m x 3m W3W Square & 3x3 (1m x 1m) Sub-Grid Inspector -->
-      <div class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200/90 flex flex-col gap-3">
-        <div class="flex items-start justify-between gap-2 border-b border-stone-100 pb-2.5">
-          <div>
-            <div class="flex items-center gap-2">
-              <span id="inspCellLabel" class="font-mono-code text-sm font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900">R4-C7</span>
-              <span id="inspZoneBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">🌿 Yard Square</span>
-              <span id="inspSunBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">☀️ Full Sun</span>
-            </div>
-            <div id="inspW3W" class="font-mono-code text-sm font-bold text-emerald-700 mt-1">///maple.garden.square</div>
-            <div id="inspCoords" class="text-[11px] text-stone-500 font-mono-code">44.260235, -72.575625 (3m × 3m / 9.84 ft × 9.84 ft)</div>
-          </div>
-          <button onclick="openQuickPlantInSelectedSquare()" class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm transition">
-            + Plant Here
+        <!-- 2-Tab Switcher Header -->
+        <div class="grid grid-cols-2 bg-stone-100/90 p-1.5 gap-1.5 border-b border-stone-200/80">
+          <button onclick="setSidebarTab('square')" id="sidebarTabBtn-square" class="py-2 px-3 rounded-xl text-xs font-bold transition bg-white text-stone-900 shadow-sm flex items-center justify-center gap-1.5">
+            <span>📍 Selected Square</span>
+          </button>
+          <button onclick="setSidebarTab('garden')" id="sidebarTabBtn-garden" class="py-2 px-3 rounded-xl text-xs font-bold transition text-stone-600 hover:text-stone-900 flex items-center justify-center gap-1.5">
+            <span>🌿 My Garden</span>
+            <span id="totalPlantsBadge" class="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold">0</span>
+            <span id="gardenWaterAlertDot" class="hidden w-2 h-2 rounded-full bg-amber-500"></span>
           </button>
         </div>
 
-        <!-- 3x3 Sub-Square Micro-Grid (Nine 1m x 1m slots inside the 3m x 3m W3W Square) -->
-        <div>
-          <div class="flex items-center justify-between text-xs mb-1.5">
-            <span class="font-bold text-stone-700">3×3 Sub-Square Layout (1m × 1m slots):</span>
-            <span class="text-[11px] text-stone-500">Click slot to inspect or add</span>
+        <!-- SIDEBAR TAB 1: Selected Square + Visual Plant Cards -->
+        <div id="sidebarPanel-square" class="p-4 flex flex-col gap-3.5">
+
+          <!-- Selected Square Summary Header -->
+          <div class="flex items-start justify-between gap-2 pb-3 border-b border-stone-100">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span id="inspCellLabel" class="font-mono-code text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900">R4-C7</span>
+                <span id="inspZoneBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">🌿 Open Lawn</span>
+                <span id="inspSunBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200/70">☀️ Full Sun</span>
+              </div>
+              <button onclick="copyCurrentW3W()" title="Click to copy What3Words address" class="mt-1.5 inline-flex items-center gap-1.5 text-left group">
+                <span id="inspW3W" class="font-mono-code text-xs font-bold text-emerald-700 group-hover:underline">///maple.garden.square</span>
+                <span id="copyW3WHint" class="text-[10px] text-stone-400 group-hover:text-emerald-700">Copy</span>
+              </button>
+              <div id="inspCoords" class="text-[11px] text-stone-400">10 × 10 ft square (3m × 3m)</div>
+            </div>
+
+            <button onclick="openQuickPlantInSelectedSquare()" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-semibold whitespace-nowrap transition">
+              🌱 Pick a Plant ↓
+            </button>
           </div>
-          <div id="subSquareGrid" class="grid grid-cols-3 gap-1.5 bg-emerald-950/5 p-2 rounded-xl border border-emerald-900/10">
+
+          <!-- Plants Already Growing in This Square -->
+          <div id="squarePlantsContainer" class="flex flex-col gap-2"></div>
+
+          <!-- Collapsible 3x3 (1m x 1m) Sub-Square Slot Selector -->
+          <details id="subSlotDetails" class="group rounded-xl bg-stone-50/90 border border-stone-200/80 px-3 py-2">
+            <summary class="cursor-pointer list-none flex items-center justify-between text-xs font-semibold text-stone-700 select-none">
+              <span>📐 Placement in Square: <strong id="activeSlotSummaryLabel" class="text-emerald-800">Center (Full Square)</strong></span>
+              <span class="text-[11px] text-stone-400 group-open:rotate-180 transition-transform">▾</span>
+            </summary>
+            <div class="pt-2.5 flex flex-col gap-2">
+              <p class="text-[11px] text-stone-500">
+                Plant 1 tree in <strong>C (Center)</strong>, or divide this 10×10 ft square into nine 3×3 ft mini-slots for shrubs & veggie beds:
+              </p>
+              <div id="subSquareGrid" class="grid grid-cols-3 gap-1.5"></div>
+            </div>
+          </details>
+
+          <!-- Visual Plant Catalog Picker -->
+          <div id="visualCatalogSection" class="pt-1 border-t border-stone-100 flex flex-col gap-2.5 rounded-xl transition">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-stone-800">🌱 Add a Tree, Shrub, or Bed</h3>
+              <span id="catalogZoneMatchHint" class="text-[11px] text-emerald-700 font-medium">Matched to your zone</span>
+            </div>
+
+            <!-- Category Filter Chips -->
+            <div class="flex flex-wrap gap-1">
+              <button onclick="setCatalogCategory('all')" id="catChip-all" class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition bg-emerald-800 text-white">
+                ✨ All
+              </button>
+              <button onclick="setCatalogCategory('trees')" id="catChip-trees" class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition bg-stone-100 text-stone-700 hover:bg-stone-200">
+                🌳 Trees
+              </button>
+              <button onclick="setCatalogCategory('shrubs')" id="catChip-shrubs" class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition bg-stone-100 text-stone-700 hover:bg-stone-200">
+                🫐 Shrubs & Berries
+              </button>
+              <button onclick="setCatalogCategory('beds')" id="catChip-beds" class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition bg-stone-100 text-stone-700 hover:bg-stone-200">
+                🥕 Veggies & Flowers
+              </button>
+            </div>
+
+            <!-- Quick Search -->
+            <input
+              id="catalogSearchInput"
+              type="text"
+              oninput="renderVisualCatalog()"
+              placeholder="Search apple, maple, blueberry, tomato..."
+              class="w-full px-3 py-1.5 text-xs rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-emerald-600 outline-none"
+            />
+
+            <!-- Scrollable Visual Species Cards -->
+            <div id="visualCatalogCards" class="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-0.5"></div>
           </div>
         </div>
 
-        <!-- Plants Inside This 3m x 3m Square -->
-        <div id="squarePlantsContainer" class="flex flex-col gap-2.5 max-h-[340px] overflow-y-auto pr-0.5">
-        </div>
-      </div>
+        <!-- SIDEBAR TAB 2: My Garden (Encouraging Health Summary, Tips & Full Plant List) -->
+        <div id="sidebarPanel-garden" class="hidden p-4 flex flex-col gap-3.5">
 
-      <!-- Card 2: "This Week in Your Yard" — Canopy Clearance, Root Safety & Companion Checks -->
-      <div class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200/90 flex flex-col gap-3">
-        <div class="flex items-center justify-between border-b border-stone-100 pb-2">
-          <div class="flex items-center gap-2">
-            <span class="text-lg">🏡</span>
+          <!-- Warm Encouraging Banner -->
+          <div id="gardenHeroBanner" class="rounded-2xl bg-emerald-50/90 border border-emerald-200 p-3.5 flex items-start gap-2.5">
+            <span id="gardenHeroEmoji" class="text-xl">🌟</span>
             <div>
-              <h3 class="text-sm font-bold text-stone-800">Yard Health, Canopy & Root Safety</h3>
-              <p class="text-[11px] text-stone-500">Live spatial analysis across all planted 3m squares</p>
+              <div id="gardenHeroTitle" class="text-xs font-bold text-emerald-950">Your yard is off to a great start!</div>
+              <p id="gardenHeroSub" class="text-[11px] text-emerald-800/90 mt-0.5">All planted trees and beds are checked for sun, climate, and foundation safety.</p>
             </div>
           </div>
-          <span id="totalPlantsBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900">8 Plants</span>
+
+          <!-- 3 Clean Health Pills -->
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="rounded-xl bg-stone-50 p-2.5 border border-stone-200/80">
+              <div class="text-[10px] text-stone-500 font-semibold">Sun & Climate</div>
+              <div id="metricCanopySun" class="text-xs font-bold text-emerald-800 mt-0.5">✓ Ideal</div>
+              <div id="metricCanopyStatus" class="text-[10px] text-emerald-700 font-medium">Matched</div>
+            </div>
+            <div class="rounded-xl bg-stone-50 p-2.5 border border-stone-200/80">
+              <div class="text-[10px] text-stone-500 font-semibold">Root Safety</div>
+              <div id="metricRootSafety" class="text-xs font-bold text-emerald-800 mt-0.5">✓ Safe</div>
+              <div class="text-[10px] text-stone-500">Home & Septic</div>
+            </div>
+            <div class="rounded-xl bg-stone-50 p-2.5 border border-stone-200/80">
+              <div class="text-[10px] text-stone-500 font-semibold">Watering</div>
+              <div id="metricCareTasks" class="text-xs font-bold text-emerald-800 mt-0.5">✓ Hydrated</div>
+              <div class="text-[10px] text-stone-500">1-Tap Care</div>
+            </div>
+          </div>
+
+          <!-- Friendly Garden Tips -->
+          <div id="analysisRecommendations" class="flex flex-col gap-1.5 text-xs"></div>
+
+          <!-- All Plantings Quick-Jump & 1-Tap Water List -->
+          <div class="border-t border-stone-100 pt-3 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-stone-800">Everything Growing in Your Yard</span>
+              <span class="text-[11px] text-stone-400">Tap to locate</span>
+            </div>
+            <div id="allPlantsList" class="flex flex-col gap-1.5 max-h-[340px] overflow-y-auto pr-0.5"></div>
+          </div>
         </div>
 
-        <!-- Metric Pills -->
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="rounded-xl bg-stone-50 p-2 border border-stone-200/80">
-            <div class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Canopy & Sun</div>
-            <div id="metricCanopySun" class="text-sm font-bold text-emerald-800 mt-0.5">✓ Optimal</div>
-            <div id="metricCanopyStatus" class="text-[10px] text-emerald-700 font-medium">☀️ Sun Matched</div>
-          </div>
-          <div class="rounded-xl bg-stone-50 p-2 border border-stone-200/80">
-            <div class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Root & Septic</div>
-            <div id="metricRootSafety" class="text-sm font-bold text-emerald-800 mt-0.5">0 Conflicts</div>
-            <div class="text-[10px] text-stone-500">Foundation Safe</div>
-          </div>
-          <div class="rounded-xl bg-stone-50 p-2 border border-stone-200/80">
-            <div class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Care Tasks</div>
-            <div id="metricCareTasks" class="text-sm font-bold text-amber-700 mt-0.5">1 Needs Water</div>
-            <div class="text-[10px] text-stone-500">1-Tap Log Ready</div>
-          </div>
-        </div>
-
-        <!-- Recommendations & Warnings Feed -->
-        <div id="analysisRecommendations" class="flex flex-col gap-1.5 text-xs"></div>
-
-        <!-- Full Yard Plant Inventory Quick-Jump List -->
-        <div class="border-t border-stone-100 pt-2.5">
-          <div class="text-xs font-bold text-stone-700 mb-1.5">All Planted Trees, Shrubs & Beds (Click to Locate):</div>
-          <div id="allPlantsList" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1"></div>
-        </div>
-      </div>
-
-    </aside>
+      </aside>
+    </div>
   </main>
 
   <script>
     const SUB_SLOTS = ["NW", "N", "NE", "W", "C", "E", "SW", "S", "SE"];
+    const SUB_SLOT_NAMES = {
+      C: "Center (Full Square)",
+      NW: "NW Top-Left (1m)",
+      N: "North Edge (1m)",
+      NE: "NE Top-Right (1m)",
+      W: "West Edge (1m)",
+      E: "East Edge (1m)",
+      SW: "SW Bottom-Left (1m)",
+      S: "South Edge (1m)",
+      SE: "SE Bottom-Right (1m)",
+    };
+    const FRIENDLY_ZONE_NAMES = {
+      yard: "🌿 Open Lawn",
+      house_roof: "🏠 House Roof",
+      garage_shed: "🛖 Garage / Shed",
+      driveway_patio: "🧱 Driveway / Patio",
+      fence_border: "🪵 Lot Fence Line",
+      road_apron: "🛣️ Street / Road",
+      septic_utility: "⚠️ Septic / Utility",
+      out_of_bounds: "🚫 Outside Lot",
+    };
     const STORAGE_KEY_ACTIVE_YARD = "yardsquare_active_yard_id";
     const STRUCTURE_BOX_BRUSHES = new Set(["house_roof", "garage_shed", "driveway_patio"]);
 
+    function escapeHtml(val) {
+      return String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function hasStoredYardBefore() {
+      const params = new URLSearchParams(window.location.search);
+      return Boolean(params.get("yard") || params.get("yard_id") || localStorage.getItem(STORAGE_KEY_ACTIVE_YARD));
+    }
+
     function getInitialYardId() {
       const params = new URLSearchParams(window.location.search);
-      const urlYard = params.get("yard");
+      const urlYard = params.get("yard") || params.get("yard_id");
       if (urlYard && urlYard.trim()) return urlYard.trim();
       return localStorage.getItem(STORAGE_KEY_ACTIVE_YARD) || "yard_default";
     }
@@ -548,8 +735,13 @@
       if (!yardId) return;
       state.yardId = yardId;
       localStorage.setItem(STORAGE_KEY_ACTIVE_YARD, yardId);
+      const walkEl = document.getElementById("walkModeLink");
+      if (walkEl) {
+        walkEl.href = yardId === "yard_default" ? "/walk" : `/walk?yard=${encodeURIComponent(yardId)}`;
+      }
       try {
         const url = new URL(window.location.href);
+        url.searchParams.delete("yard_id");
         if (yardId === "yard_default") {
           url.searchParams.delete("yard");
         } else {
@@ -559,15 +751,21 @@
       } catch (e) {}
     }
 
+    const isReturningVisitor = hasStoredYardBefore();
+
     let state = {
       yardId: getInitialYardId(),
       yard: null,
       savedYards: [],
       catalog: [],
+      catalogCategory: "all", // 'all' | 'trees' | 'shrubs' | 'beds'
+      activeStep: isReturningVisitor ? 3 : 1, // 1: Find Home, 2: Shape Yard, 3: Plant & Care
+      borderSubTab: "fence", // 'fence' | 'structures'
+      sidebarTab: "square", // 'square' | 'garden'
       season: "summer",
       canopyScale: 1.0,
       interactionMode: "inspect", // 'inspect' | 'border' | 'plant'
-      borderBrush: "polygon_edit", // 'polygon_edit' | 'polygon_draw' | 'fence_box' | 'fence_border' | 'yard' | 'house_roof' | ...
+      borderBrush: "polygon_edit",
       selectedSpeciesId: "malus_honeycrisp",
       selectedSubSlot: "C",
       selectedCell: { row: 3, col: 6 },
@@ -581,6 +779,7 @@
       draggingVertexIndex: null,
       polygonDraftVertices: [],
       lastAerialBboxKey: "",
+      aerialImageLoaded: false,
     };
 
     async function initApp() {
@@ -601,12 +800,13 @@
         state.yard = await yardResp.json();
       }
 
+      state.selectedSpeciesId = state.catalog[0]?.species_id || "malus_honeycrisp";
       ensureBorderVertices();
-      populateSpeciesPicker();
       populateSavedYardsDropdown();
       syncHeaderAndControls();
-      renderGrid();
-      renderSelectedSquareInspector();
+      setActiveStep(state.activeStep);
+      renderVisualCatalog();
+      await renderSelectedSquareInspector();
       renderAnalysisSidebar();
       setupAutocomplete();
 
@@ -622,7 +822,12 @@
           return;
         }
 
-        if (state.interactionMode === "border" && state.borderBrush === "fence_box" && state.fenceBoxDragStart && state.fenceBoxDragCurrent) {
+        if (
+          state.interactionMode === "border" &&
+          state.borderBrush === "fence_box" &&
+          state.fenceBoxDragStart &&
+          state.fenceBoxDragCurrent
+        ) {
           const r1 = state.fenceBoxDragStart.row;
           const c1 = state.fenceBoxDragStart.col;
           const r2 = state.fenceBoxDragCurrent.row;
@@ -639,7 +844,12 @@
           return;
         }
 
-        if (state.interactionMode === "border" && STRUCTURE_BOX_BRUSHES.has(state.borderBrush) && state.structureBoxDragStart && state.structureBoxDragCurrent) {
+        if (
+          state.interactionMode === "border" &&
+          STRUCTURE_BOX_BRUSHES.has(state.borderBrush) &&
+          state.structureBoxDragStart &&
+          state.structureBoxDragCurrent
+        ) {
           const r1 = state.structureBoxDragStart.row;
           const c1 = state.structureBoxDragStart.col;
           const r2 = state.structureBoxDragCurrent.row;
@@ -663,6 +873,112 @@
       });
     }
 
+    // --- GUIDED 3-STEP NAVIGATION & SUB-TABS ---
+    function setActiveStep(stepNum) {
+      state.activeStep = stepNum;
+      [1, 2, 3].forEach(n => {
+        const tab = document.getElementById(`stepTab-${n}`);
+        const badge = document.getElementById(`stepNum-${n}`);
+        const panel = document.getElementById(`stepPanel-${n}`);
+        if (panel) panel.classList.toggle("hidden", n !== stepNum);
+        if (!tab || !badge) return;
+        if (n === stepNum) {
+          tab.className = "flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-emerald-900 text-white shadow-sm";
+          badge.className = "w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold bg-emerald-400 text-emerald-950";
+        } else if (n < stepNum) {
+          tab.className = "flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition bg-emerald-50/80 text-emerald-900 hover:bg-emerald-100/80";
+          badge.className = "w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold bg-emerald-200 text-emerald-900";
+        } else {
+          tab.className = "flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition text-stone-600 hover:bg-stone-100";
+          badge.className = "w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold bg-stone-200 text-stone-700";
+        }
+      });
+
+      if (stepNum === 1) {
+        state.interactionMode = "inspect";
+      } else if (stepNum === 2) {
+        state.interactionMode = "border";
+        ensureBorderVertices();
+        updateFenceDimensionsBadge();
+        setBorderSubTab(state.borderSubTab);
+      } else {
+        setPlantStepAction(state.interactionMode === "plant" ? "plant" : "inspect");
+      }
+      renderGrid();
+    }
+
+    function setBorderSubTab(subTab) {
+      state.borderSubTab = subTab;
+      const isFence = subTab === "fence";
+      document.getElementById("borderSubPanel-fence")?.classList.toggle("hidden", !isFence);
+      document.getElementById("borderSubPanel-structures")?.classList.toggle("hidden", isFence);
+
+      const btnFence = document.getElementById("borderSubTabBtn-fence");
+      const btnStruct = document.getElementById("borderSubTabBtn-structures");
+      if (btnFence) {
+        btnFence.className = isFence
+          ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-stone-900 shadow-sm"
+          : "px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900";
+      }
+      if (btnStruct) {
+        btnStruct.className = !isFence
+          ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-stone-900 shadow-sm"
+          : "px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900";
+      }
+
+      const fenceBrushes = new Set(["polygon_edit", "polygon_draw", "fence_box", "fence_border", "out_of_bounds"]);
+      const structBrushes = new Set(["house_roof", "garage_shed", "driveway_patio", "septic_utility", "yard"]);
+      if (isFence && !fenceBrushes.has(state.borderBrush)) {
+        setBorderBrush("polygon_edit");
+      } else if (!isFence && !structBrushes.has(state.borderBrush)) {
+        setBorderBrush("house_roof");
+      } else {
+        setBorderBrush(state.borderBrush);
+      }
+    }
+
+    function setPlantStepAction(mode) {
+      state.interactionMode = mode === "plant" ? "plant" : "inspect";
+      const isPlant = state.interactionMode === "plant";
+      const btnInsp = document.getElementById("plantActionBtn-inspect");
+      const btnPlant = document.getElementById("plantActionBtn-plant");
+      if (btnInsp) {
+        btnInsp.className = !isPlant
+          ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-emerald-950 shadow-sm"
+          : "px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900";
+      }
+      if (btnPlant) {
+        btnPlant.className = isPlant
+          ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-emerald-700 text-white shadow-sm"
+          : "px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900";
+      }
+      document.getElementById("step3HelperText")?.classList.toggle("hidden", isPlant);
+      document.getElementById("activePlantBrushBar")?.classList.toggle("hidden", !isPlant);
+      syncActivePlantBrushLabel();
+      renderGrid();
+    }
+
+    function setSidebarTab(tab) {
+      state.sidebarTab = tab;
+      const isSquare = tab === "square";
+      document.getElementById("sidebarPanel-square")?.classList.toggle("hidden", !isSquare);
+      document.getElementById("sidebarPanel-garden")?.classList.toggle("hidden", isSquare);
+
+      const bSq = document.getElementById("sidebarTabBtn-square");
+      const bGd = document.getElementById("sidebarTabBtn-garden");
+      if (bSq) {
+        bSq.className = isSquare
+          ? "py-2 px-3 rounded-xl text-xs font-bold transition bg-white text-stone-900 shadow-sm flex items-center justify-center gap-1.5"
+          : "py-2 px-3 rounded-xl text-xs font-bold transition text-stone-600 hover:text-stone-900 flex items-center justify-center gap-1.5";
+      }
+      if (bGd) {
+        bGd.className = !isSquare
+          ? "py-2 px-3 rounded-xl text-xs font-bold transition bg-white text-stone-900 shadow-sm flex items-center justify-center gap-1.5"
+          : "py-2 px-3 rounded-xl text-xs font-bold transition text-stone-600 hover:text-stone-900 flex items-center justify-center gap-1.5";
+      }
+    }
+
+    // --- SAVED PROPERTIES ---
     async function refreshSavedYardsList() {
       const resp = await fetch("/api/v1/yard/list");
       if (resp.ok) {
@@ -676,8 +992,8 @@
       if (!sel) return;
       const yards = state.savedYards.length > 0 ? state.savedYards : (state.yard ? [state.yard] : []);
       sel.innerHTML = yards.map(y => {
-        const customTag = y.zones?.footprint_source === "user_adjusted_custom_border" ? " · 🪵 Custom Fence" : "";
-        return `<option value="${y.yard_id}" ${y.yard_id === state.yardId ? "selected" : ""}>🏡 ${y.yard_name || y.street_address} (${y.street_address.split(",")[0]}${customTag})</option>`;
+        const shortAddr = (y.street_address || "").split(",")[0] || y.yard_name || y.yard_id;
+        return `<option value="${escapeHtml(y.yard_id)}" ${y.yard_id === state.yardId ? "selected" : ""}>🏡 ${escapeHtml(shortAddr)}</option>`;
       }).join("");
     }
 
@@ -692,10 +1008,11 @@
         state.yard = await resp.json();
         ensureBorderVertices();
         syncHeaderAndControls();
+        renderVisualCatalog();
         renderGrid();
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
-        showToast(`🏡 Loaded remembered property: ${state.yard.street_address}`);
+        showToast(`🏡 Switched to ${state.yard.street_address.split(",")[0]}`);
       }
     }
 
@@ -706,7 +1023,7 @@
       const newId = "yard_" + Math.random().toString(36).slice(2, 8);
       const copyYard = JSON.parse(JSON.stringify(state.yard));
       copyYard.yard_id = newId;
-      copyYard.yard_name = `${shortStreet} Yard`;
+      copyYard.yard_name = `${shortStreet} (Copy)`;
       copyYard.street_address = addr;
 
       const resp = await fetch(`/api/v1/yard/${newId}`, {
@@ -721,29 +1038,140 @@
         await refreshSavedYardsList();
         syncHeaderAndControls();
         renderGrid();
-        showToast(`🏡 Saved "${copyYard.yard_name}" as a remembered property in Cloud Firestore!`);
+        showToast(`✨ Saved "${copyYard.yard_name}" to your properties`);
       }
     }
 
-    function populateSpeciesPicker() {
-      const sel = document.getElementById("speciesPickerSelect");
-      sel.innerHTML = state.catalog.map(item =>
-        `<option value="${item.species_id}">${item.emoji} ${item.common_name} (Spread: ${item.mature_spread_ft}ft · Zone ${item.min_usda_zone}-${item.max_usda_zone})</option>`
-      ).join("");
-      state.selectedSpeciesId = state.catalog[0]?.species_id || "malus_honeycrisp";
-      onSpeciesPickerChange();
+    // --- VISUAL PLANT CATALOG ---
+    function getNumericUsdaZone() {
+      const m = String(state.yard?.usda_zone || "5").match(/\d+/);
+      return m ? parseInt(m[0], 10) : 5;
     }
 
-    function onSpeciesPickerChange() {
-      const val = document.getElementById("speciesPickerSelect").value;
-      state.selectedSpeciesId = val;
-      const spec = state.catalog.find(s => s.species_id === val);
-      if (spec) {
-        document.getElementById("selectedSpeciesHint").textContent =
-          `${spec.emoji} ${spec.common_name}: ${spec.sun_need.replace('_', ' ')} · Water every ${spec.water_interval_days}d · Root aggression: ${spec.root_aggression}`;
+    function setCatalogCategory(cat) {
+      state.catalogCategory = cat;
+      ["all", "trees", "shrubs", "beds"].forEach(c => {
+        const chip = document.getElementById(`catChip-${c}`);
+        if (!chip) return;
+        chip.className = c === cat
+          ? "px-2.5 py-1 rounded-full text-[11px] font-semibold transition bg-emerald-800 text-white"
+          : "px-2.5 py-1 rounded-full text-[11px] font-semibold transition bg-stone-100 text-stone-700 hover:bg-stone-200";
+      });
+      renderVisualCatalog();
+    }
+
+    function syncActivePlantBrushLabel() {
+      const spec = state.catalog.find(s => s.species_id === state.selectedSpeciesId);
+      const el = document.getElementById("activePlantBrushLabel");
+      if (spec && el) {
+        el.textContent = `${spec.emoji} ${spec.common_name}`;
       }
     }
 
+    function selectCatalogSpecies(speciesId) {
+      state.selectedSpeciesId = speciesId;
+      syncActivePlantBrushLabel();
+      renderVisualCatalog();
+    }
+
+    function renderVisualCatalog() {
+      const container = document.getElementById("visualCatalogCards");
+      if (!container) return;
+      const q = (document.getElementById("catalogSearchInput")?.value || "").trim().toLowerCase();
+      const userZone = getNumericUsdaZone();
+      const zoneStr = state.yard?.usda_zone || `${userZone}`;
+      const hintEl = document.getElementById("catalogZoneMatchHint");
+      if (hintEl) hintEl.textContent = `Zone ${zoneStr} fit`;
+
+      const filtered = state.catalog.filter(item => {
+        if (state.catalogCategory === "trees" && !["fruit_tree", "shade_tree", "evergreen_tree"].includes(item.category)) return false;
+        if (state.catalogCategory === "shrubs" && item.category !== "flowering_shrub") return false;
+        if (state.catalogCategory === "beds" && !["vegetable_herb", "perennial", "groundcover_vine"].includes(item.category)) return false;
+        if (q && !`${item.common_name} ${item.scientific_name} ${item.care_summary}`.toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      const targetLbl = cellLabel(state.selectedCell.row, state.selectedCell.col);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="rounded-xl bg-stone-50 border border-stone-200 p-4 text-center text-xs text-stone-500">
+            No matching plants found — try clearing your search filter.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isSelected = item.species_id === state.selectedSpeciesId;
+        const fitsZone = userZone >= item.min_usda_zone && userZone <= item.max_usda_zone;
+        const sunLabel = item.sun_need === "full_sun" ? "☀️ Sun" : (item.sun_need === "part_shade" ? "⛅ Part Shade" : "🌑 Shade");
+        const zonePill = fitsZone
+          ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">✓ Fits Zone ${escapeHtml(zoneStr)}</span>`
+          : `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Zone ${item.min_usda_zone}–${item.max_usda_zone}</span>`;
+
+        return `
+          <div
+            onclick="selectCatalogSpecies('${escapeHtml(item.species_id)}')"
+            class="rounded-xl p-2.5 border transition cursor-pointer flex items-center justify-between gap-2 ${
+              isSelected
+                ? "bg-emerald-50/80 border-emerald-500 ring-1 ring-emerald-500/30"
+                : "bg-white hover:bg-stone-50 border-stone-200"
+            }"
+          >
+            <div class="flex items-start gap-2.5 min-w-0">
+              <span class="text-xl leading-none mt-0.5 shrink-0">${escapeHtml(item.emoji)}</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-bold text-stone-900 truncate">${escapeHtml(item.common_name)}</span>
+                  ${zonePill}
+                </div>
+                <div class="text-[11px] text-stone-500 mt-0.5">
+                  ${sunLabel} · 💧 ${item.water_interval_days}d · ↔ ${item.mature_spread_ft}ft
+                </div>
+                ${isSelected ? `<p class="text-[11px] text-emerald-900/90 mt-1 leading-snug">${escapeHtml(item.care_summary)}</p>` : ""}
+              </div>
+            </div>
+            <button
+              onclick="event.stopPropagation(); plantFromCard('${escapeHtml(item.species_id)}')"
+              class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold whitespace-nowrap shrink-0 shadow-sm transition"
+              title="Plant into selected square ${targetLbl}"
+            >
+              + Plant
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function plantFromCard(speciesId) {
+      state.selectedSpeciesId = speciesId;
+      syncActivePlantBrushLabel();
+      const { row, col } = state.selectedCell;
+      const zone = getCellZoneType(row, col);
+      if (["house_roof", "garage_shed", "driveway_patio", "road_apron"].includes(zone)) {
+        showToast(`🏠 Square ${cellLabel(row, col)} is ${FRIENDLY_ZONE_NAMES[zone]} — click an open lawn square on the map first!`);
+        return;
+      }
+      await plantSpeciesInSquare(row, col, speciesId, state.selectedSubSlot || "C");
+    }
+
+    function openQuickPlantInSelectedSquare() {
+      setSidebarTab("square");
+      const sec = document.getElementById("visualCatalogSection");
+      if (sec) {
+        sec.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        sec.classList.remove("highlight-pulse");
+        void sec.offsetWidth;
+        sec.classList.add("highlight-pulse");
+      }
+    }
+
+    function focusPlantCatalogInSidebar() {
+      openQuickPlantInSelectedSquare();
+    }
+
+    // --- POLYGON & BORDER GEOMETRY ---
     function ensureBorderVertices() {
       if (!state.yard || !state.yard.zones) return [];
       const z = state.yard.zones;
@@ -790,55 +1218,42 @@
       const verts = ensureBorderVertices();
       const bounds = getCurrentFenceBounds();
       const sqFt = state.yard.square_size_feet || 9.8425;
-      const sqM = state.yard.square_size_meters || 3.0;
       const widthFt = Math.round((bounds.maxC - bounds.minC + 1) * sqFt);
       const depthFt = Math.round((bounds.maxR - bounds.minR + 1) * sqFt);
-      const widthM = Math.round((bounds.maxC - bounds.minC + 1) * sqM);
-      const depthM = Math.round((bounds.maxR - bounds.minR + 1) * sqM);
       const metrics = computePolygonMetrics(verts);
-      badge.textContent =
-        `🪵 ${verts.length} Corners · ${widthFt}×${depthFt} ft (${widthM}×${depthM}m) · Perim: ${metrics.perimeterFt} ft · ~${metrics.areaSqFt.toLocaleString()} sq ft`;
+      badge.textContent = `${verts.length} Corners · ${widthFt}×${depthFt} ft (~${metrics.areaSqFt.toLocaleString()} sq ft)`;
     }
 
     function updateCloudMemoryStatus(statusType, customMessage) {
       const badge = document.getElementById("cloudMemoryBadge");
       if (!badge) return;
       if (statusType === "saving") {
-        badge.className = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-semibold";
-        badge.textContent = customMessage || "🟡 Saving border changes...";
+        badge.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/40";
+        badge.textContent = customMessage || "☁️ Saving...";
       } else {
-        const isCustom = state.yard?.zones?.footprint_source === "user_adjusted_custom_border";
-        badge.className = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-100/90 text-emerald-900 border border-emerald-300 font-semibold";
-        badge.textContent = customMessage || (isCustom ? "🟢 Custom Fence & Yard Remembered" : "🟢 Remembered in Cloud");
+        badge.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-200 border border-emerald-700/60";
+        badge.textContent = customMessage || "☁️ Auto-saved";
       }
     }
 
     function syncHeaderAndControls() {
       if (!state.yard) return;
       document.getElementById("addressInput").value = state.yard.street_address;
-      document.getElementById("usdaBadge").textContent =
-        `🌡️ USDA Zone ${state.yard.usda_zone} (${state.yard.usda_min_temp_f})`;
+      const hdrAddr = document.getElementById("headerActiveAddress");
+      if (hdrAddr) hdrAddr.textContent = state.yard.street_address;
+      document.getElementById("usdaBadge").textContent = `🌡️ Zone ${state.yard.usda_zone}`;
 
       const src = state.yard.zones?.footprint_source || "";
-      let badgeText = "📍 Rooftop-Centered Parcel + Adjustable Structures";
-      let badgeClass = "text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
-      if (src === "user_adjusted_custom_border") {
-        badgeText = "🪵 Custom Adjusted Fence & Property Border";
-        badgeClass = "text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 font-semibold";
-      } else if (src === "fema_usa_structures_satellite_plotted" || src === "fema_usa_structures_lidar_polygon") {
-        badgeText = "🏛️ FEMA LiDAR Roof + 🛰️ Satellite Auto-Plot";
-      } else if (src === "osm_overpass_satellite_plotted" || src === "osm_overpass_live_building_polygon") {
-        badgeText = "🗺️ OSM Footprint + 🛰️ Satellite Auto-Plot";
-      } else if (src === "satellite_auto_plotted_parcel") {
-        badgeText = "🛰️ Satellite 3m-Patch Auto-Plotted Roof & Driveway";
-      }
-      ["footprintSourceBadge", "gridFootprintSourceBadge"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.textContent = badgeText;
-          el.className = badgeClass;
+      const fpBadge = document.getElementById("footprintSourceBadge");
+      if (fpBadge) {
+        if (src === "user_adjusted_custom_border") {
+          fpBadge.textContent = "✨ Custom yard outline";
+          fpBadge.className = "text-[11px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-medium";
+        } else {
+          fpBadge.textContent = "🛰️ Auto-mapped from aerial & LiDAR";
+          fpBadge.className = "text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
         }
-      });
+      }
 
       updateFenceDimensionsBadge();
       updateCloudMemoryStatus("saved");
@@ -848,11 +1263,10 @@
       state.season = season;
       ["spring", "summer", "autumn", "winter"].forEach(s => {
         const btn = document.getElementById(`btnSeason-${s}`);
-        if (s === season) {
-          btn.className = "px-2.5 py-1 rounded-md bg-emerald-600 text-white font-semibold transition";
-        } else {
-          btn.className = "px-2.5 py-1 rounded-md text-emerald-100/80 hover:text-white transition";
-        }
+        if (!btn) return;
+        btn.className = s === season
+          ? "px-2 py-1 rounded-lg bg-emerald-600 text-white font-semibold transition"
+          : "px-2 py-1 rounded-lg text-emerald-100/80 hover:text-white transition";
       });
       renderGrid();
     }
@@ -862,37 +1276,13 @@
       renderGrid();
     }
 
-    function setInteractionMode(mode) {
-      state.interactionMode = mode;
-      const modes = ["inspect", "border", "plant"];
-      modes.forEach(m => {
-        const btn = document.getElementById(`modeBtn-${m}`);
-        if (!btn) return;
-        if (m === mode) {
-          btn.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-emerald-800 text-white border-emerald-900 shadow-sm";
-        } else {
-          btn.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border transition bg-stone-100 text-stone-700 border-stone-300 hover:bg-stone-200/70";
-        }
-        const sub = document.getElementById(`subToolbar-${m}`);
-        if (sub) {
-          sub.classList.toggle("hidden", m !== mode);
-        }
-      });
-      if (mode === "border") {
-        ensureBorderVertices();
-        updateFenceDimensionsBadge();
-      }
-      renderGrid();
-    }
-
     function setBorderBrush(brush) {
       state.borderBrush = brush;
       state.structureBoxDragStart = null;
       state.structureBoxDragCurrent = null;
       if (brush !== "polygon_draw") {
         state.polygonDraftVertices = [];
-        const drawBar = document.getElementById("polygonDrawActiveBar");
-        if (drawBar) drawBar.classList.add("hidden");
+        document.getElementById("polygonDrawActiveBar")?.classList.add("hidden");
       }
       const brushes = [
         "polygon_edit",
@@ -909,24 +1299,29 @@
       brushes.forEach(b => {
         const btn = document.getElementById(`brushBtn-${b}`);
         if (!btn) return;
+        const isSmall = b === "fence_border" || b === "out_of_bounds";
         if (b === brush) {
-          btn.className = "px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-800 text-white shadow-sm";
+          btn.className = isSmall
+            ? "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-800 text-white border border-amber-900"
+            : "px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-amber-800 text-white shadow-sm";
         } else {
-          btn.className = "px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-700 border border-stone-300";
+          btn.className = isSmall
+            ? "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100"
+            : "px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-stone-100 text-stone-700 hover:bg-stone-200/80 border border-stone-200";
         }
       });
       renderSvgOverlay();
     }
 
     function startNewPolygonDraw() {
-      setInteractionMode("border");
+      state.activeStep = 2;
+      state.interactionMode = "border";
       state.polygonDraftVertices = [];
       setBorderBrush("polygon_draw");
-      const drawBar = document.getElementById("polygonDrawActiveBar");
-      if (drawBar) drawBar.classList.remove("hidden");
+      document.getElementById("polygonDrawActiveBar")?.classList.remove("hidden");
       updatePolygonDrawHelperText();
       renderSvgOverlay();
-      showToast("✏️ Point-to-Point Polygon Mode: Click corners P1, P2, P3... on the 3m grid!");
+      showToast("✏️ Click corners on the aerial map (P1 → P2 → P3...) to trace your lot!");
     }
 
     function updatePolygonDrawHelperText() {
@@ -934,12 +1329,12 @@
       if (!el) return;
       const count = state.polygonDraftVertices.length;
       if (count === 0) {
-        el.textContent = "✏️ Click any 3m square on the grid to place Corner P1 (start of your custom boundary).";
+        el.textContent = "✏️ Click on the map to place Corner P1 of your lot boundary.";
       } else if (count < 3) {
-        el.textContent = `✏️ Placed ${count} corner${count > 1 ? "s" : ""} (P1..P${count}). Click at least ${3 - count} more corner${3 - count > 1 ? "s" : ""} to form a closed boundary.`;
+        el.textContent = `✏️ Placed ${count} corner${count > 1 ? "s" : ""} — click ${3 - count} more to form a shape.`;
       } else {
         const metrics = computePolygonMetrics(state.polygonDraftVertices);
-        el.textContent = `✏️ ${count} corners placed (Perim ~${metrics.perimeterFt} ft / ${metrics.perimeterM}m). Click next corner, or click P1 / '✓ Complete & Lock Polygon' to finish!`;
+        el.textContent = `✏️ ${count} corners (~${metrics.perimeterFt} ft). Click next corner, or click P1 / '✓ Finish Shape'!`;
       }
     }
 
@@ -954,12 +1349,12 @@
     function cancelPolygonDraw() {
       state.polygonDraftVertices = [];
       setBorderBrush("polygon_edit");
-      showToast("Cancelled point-to-point polygon draft.");
+      showToast("Cancelled drawing new shape.");
     }
 
     async function finishPolygonDraw() {
       if (state.polygonDraftVertices.length < 3) {
-        showToast("⚠️ Please click at least 3 corners on the grid before completing the polygon!");
+        showToast("Please click at least 3 corners on the map first.");
         return;
       }
       const newVerts = state.polygonDraftVertices.map(v => ({ row: v.row, col: v.col }));
@@ -984,7 +1379,7 @@
       applyPolygonVerticesToZones(lShapeVerts);
       setBorderBrush("polygon_edit");
       await saveBordersToCloud();
-      showToast("📐 Applied 6-corner L-Shaped Lot boundary! Drag any P1..P6 handle to customize.");
+      showToast("📐 Applied L-shaped lot! Drag any P1–P6 corner handle to fine-tune.");
     }
 
     function applyRectangularStructureBox(minR, maxR, minC, maxC, zoneType) {
@@ -1006,7 +1401,7 @@
       state.hasUnsavedBorderChanges = true;
       renderGrid();
       await saveBordersToCloud();
-      showToast("🧹 Cleared House, Garage & Driveway! Select 🏠 House, 🛖 Garage, or 🧱 Driveway and drag a box over the satellite view.");
+      showToast("🧹 Cleared buildings — drag a box over your House, Garage, or Driveway!");
     }
 
     function cellLabel(r, c) {
@@ -1108,7 +1503,6 @@
       for (let i = 0; i < n; i++) {
         const a = cleanVerts[i];
         const b = cleanVerts[(i + 1) % n];
-        // Leave front street opening unfenced along the bottom row (rows - 2) unless angled
         const isBottomStreetEdge = (a.row >= rows - 2 && b.row >= rows - 2);
         if (isBottomStreetEdge) continue;
         bresenhamGridLine(a.row, a.col, b.row, b.col).forEach(pt => {
@@ -1227,6 +1621,7 @@
       return "full_sun";
     }
 
+    // --- ULTRA-HD PROGRESSIVE SATELLITE CASCADE ---
     function updateAerialSatelliteUnderlay() {
       const img = document.getElementById("aerialUnderlayImg");
       const board = document.getElementById("yardGridBoard");
@@ -1255,11 +1650,6 @@
       const westLng = (lng - (centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
       const eastLng = (lng + (cols - 1 - centerCol + 0.5) * sqM * lngDegPerM).toFixed(6);
 
-      // Progressive Ultra-HD Web Mercator (EPSG:3857) resolution cascade (lossless PNG24):
-      // - Level 21 (~7.5cm/px, 3-inch municipal/suburban aerial orthoimagery, ~1360x942 px)
-      // - Level 20 (~15cm/px, 6-inch aerial orthoimagery, ~680x471 px)
-      // - Level 19 (~30cm/px, 12-inch satellite/aerial imagery, ~356x246 px)
-      // - Level 18 (~60cm/px global fallback, 182x126 px)
       const mercWidthM = (cols * sqM) / cosLat;
       const mercHeightM = (rows * sqM) / cosLat;
       const w21 = Math.max(720, Math.min(1560, Math.floor(mercWidthM / 0.0765)));
@@ -1326,6 +1716,7 @@
       return `${best.r}:${best.c}`;
     }
 
+    // --- GRID & SVG RENDERING ---
     function renderGrid() {
       if (!state.yard) return;
       const board = document.getElementById("yardGridBoard");
@@ -1388,7 +1779,7 @@
             const waterDot = cellPlants.some(p => p.health_status === "needs_water")
               ? `<span class="absolute -bottom-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white"></span>`
               : "";
-            div.innerHTML = `<span class="text-sm sm:text-base drop-shadow-sm relative">${primary.emoji}${countBadge}${waterDot}</span>`;
+            div.innerHTML = `<span class="text-sm sm:text-base drop-shadow-sm relative">${escapeHtml(primary.emoji)}${countBadge}${waterDot}</span>`;
           } else if (zone === "house_roof" && cellKey === houseCenterKey) {
             div.innerHTML = `<span class="text-[9px] font-bold tracking-wider uppercase opacity-95">HOUSE</span>`;
           } else if (zone === "garage_shed" && cellKey === garageCenterKey) {
@@ -1467,8 +1858,6 @@
       const sqFeet = state.yard.square_size_feet || 9.8425;
       const sqMeters = state.yard.square_size_meters || 3.0;
 
-      // 1. Only draw discrete cell fence rails/posts when satellite view is OFF
-      // (When satellite view is ON, the thin vector polygon line below keeps the aerial photo unobstructed)
       const z = state.yard.zones || {};
       if (!showSat) {
         const fenceCoords = (z.fence_border_cells || []).map(parseCellCoords).filter(Boolean);
@@ -1496,7 +1885,6 @@
         });
       }
 
-      // 1b. Draw Subtle Vector Polygon Boundary, Per-Segment Tape Measure Badges (in Border Mode) & Corner Handles
       const verts = ensureBorderVertices();
       const isDrawingDraft = isBorderMode && state.borderBrush === "polygon_draw";
 
@@ -1515,7 +1903,6 @@
         polyEl.setAttribute("stroke-dasharray", isBorderMode ? "none" : "2.5,2");
         svg.appendChild(polyEl);
 
-        // Segment length tape-measure badges (only shown in Border Edit mode so aerial view stays clean) + Midpoint (+) handles
         const n = verts.length;
         for (let i = 0; i < n; i++) {
           const a = verts[i];
@@ -1530,17 +1917,16 @@
           const segFt = Math.round(distSquares * sqFeet);
           const segM = Math.round(distSquares * sqMeters);
 
-          if (isBorderMode && distSquares >= 2) {
+          if (isBorderMode && state.borderSubTab === "fence" && distSquares >= 2) {
             drawSvgTapeBadge(svg, midX, midY - 3.8, `${segFt}ft (${segM}m)`);
           }
 
-          // Interactive Midpoint (+) handle to insert a new corner on this edge when in border mode
-          if (state.interactionMode === "border" && state.borderBrush === "polygon_edit" && distSquares >= 3) {
+          if (isBorderMode && state.borderBrush === "polygon_edit" && distSquares >= 3) {
             const midGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
             midGroup.setAttribute("class", "svg-handle-interactive");
             midGroup.innerHTML = `
               <circle cx="${midX.toFixed(1)}" cy="${(midY + 2.2).toFixed(1)}" r="2.6" fill="#059669" stroke="#ffffff" stroke-width="0.8">
-                <title>Click to insert a new corner vertex on this fence edge (for L-shaped or angled yards)</title>
+                <title>Click to add a new corner on this edge</title>
               </circle>
               <text x="${midX.toFixed(1)}" y="${(midY + 3.2).toFixed(1)}" text-anchor="middle" fill="#ffffff" font-size="3.6" font-weight="bold">+</text>
             `;
@@ -1552,14 +1938,13 @@
               state.draggingVertexIndex = i + 1;
               state.isMouseDown = true;
               applyPolygonVerticesToZones(verts);
-              showToast(`➕ Added Corner P${i + 2}! Drag to position your L-shaped or angled boundary.`);
+              showToast(`➕ Added Corner P${i + 2} — drag it into position!`);
             });
             svg.appendChild(midGroup);
           }
         }
 
-        // Draggable Corner Vertex Handles (P1, P2, P3...)
-        if (state.interactionMode === "border" && state.borderBrush === "polygon_edit") {
+        if (isBorderMode && state.borderBrush === "polygon_edit") {
           verts.forEach((v, idx) => {
             const vx = v.col * 10 + 5;
             const vy = v.row * 10 + 5;
@@ -1567,7 +1952,7 @@
             g.setAttribute("class", "svg-handle-interactive");
             g.innerHTML = `
               <circle cx="${vx}" cy="${vy}" r="4.2" fill="#d97706" stroke="#ffffff" stroke-width="1.1">
-                <title>Corner P${idx + 1} (${cellLabel(v.row, v.col)}) — Drag to move corner, or Alt-click to delete vertex</title>
+                <title>Corner P${idx + 1} — Drag to move, or Option/Alt-click to remove</title>
               </circle>
               <text x="${vx}" y="${vy + 1.1}" text-anchor="middle" fill="#ffffff" font-size="2.9" font-family="JetBrains Mono, monospace" font-weight="bold">P${idx + 1}</text>
             `;
@@ -1575,13 +1960,13 @@
               e.stopPropagation();
               if (e.altKey || e.button === 2) {
                 if (verts.length <= 3) {
-                  showToast("⚠️ A boundary polygon must have at least 3 corners.");
+                  showToast("Your yard needs at least 3 corners.");
                   return;
                 }
                 verts.splice(idx, 1);
                 applyPolygonVerticesToZones(verts);
                 await saveBordersToCloud();
-                showToast(`🗑️ Removed corner vertex. Boundary now has ${verts.length} corners.`);
+                showToast(`Removed corner — ${verts.length} corners remaining.`);
                 return;
               }
               state.draggingVertexIndex = idx;
@@ -1592,7 +1977,6 @@
         }
       }
 
-      // 1c. Point-to-Point Polygon Draft + Rubber-Band Line + Live Tape Measure
       if (isDrawingDraft) {
         const draft = state.polygonDraftVertices;
         if (draft.length > 0) {
@@ -1622,7 +2006,6 @@
             );
           }
 
-          // Live Rubber-Band Line from Last Point to Hovered Cell
           const last = draft[draft.length - 1];
           const hov = state.hoverCell || last;
           const lx = last.col * 10 + 5;
@@ -1652,7 +2035,6 @@
             );
           }
 
-          // Draw Draft Corner Pins P1..Pk
           draft.forEach((v, idx) => {
             const vx = v.col * 10 + 5;
             const vy = v.row * 10 + 5;
@@ -1667,7 +2049,6 @@
         }
       }
 
-      // 1d. Live Preview Box while dragging 'Drag Rectangle Box' or Structure Footprint Box (House/Garage/Driveway)
       const activeBoxStart = state.fenceBoxDragStart || state.structureBoxDragStart;
       const activeBoxCur = state.fenceBoxDragCurrent || state.structureBoxDragCurrent;
       if (activeBoxStart && activeBoxCur) {
@@ -1699,7 +2080,6 @@
         );
       }
 
-      // 2. Draw Tree & Shrub Canopy Circles (Scaled by Canopy Growth Slider & Seasonal Color)
       if (showCanopy) {
         (state.yard.plants || []).forEach(p => {
           const cx = p.square.col * 10 + 5;
@@ -1721,18 +2101,17 @@
       }
     }
 
-    async function updateHoverReadout(r, c, cellPlants) {
+    function updateHoverReadout(r, c, cellPlants) {
       const lbl = cellLabel(r, c);
-      const zone = getCellZoneType(r, c).replace("_", " ");
+      const zone = FRIENDLY_ZONE_NAMES[getCellZoneType(r, c)] || "🌿 Open Lawn";
       const plantInfo = cellPlants.length > 0 ? ` · ${cellPlants.map(p => p.emoji + " " + p.common_name).join(", ")}` : "";
-      document.getElementById("hoverCellReadout").textContent = `${lbl} (${zone})${plantInfo}`;
+      document.getElementById("hoverCellReadout").textContent = `${lbl} · ${zone}${plantInfo}`;
     }
 
     async function onCellAction(r, c, isDrag, evt) {
       state.selectedCell = { row: r, col: c };
 
       if (state.interactionMode === "border") {
-        // Mode A: Point-to-Point Polygon Click-to-Draw
         if (state.borderBrush === "polygon_draw") {
           if (isDrag) return;
           const draft = state.polygonDraftVertices;
@@ -1743,7 +2122,6 @@
               return;
             }
           }
-          // Avoid duplicate consecutive vertex
           const prev = draft[draft.length - 1];
           if (!prev || prev.row !== r || prev.col !== c) {
             draft.push({ row: r, col: c });
@@ -1753,7 +2131,6 @@
           return;
         }
 
-        // Mode B: Drag Corner Handles & Reshape Polygon
         if (state.borderBrush === "polygon_edit") {
           const verts = ensureBorderVertices();
           if (!isDrag) {
@@ -1766,20 +2143,16 @@
                 bestIdx = idx;
               }
             });
-            if (bestIdx !== -1 && bestDist <= 2.2) {
-              if (evt && evt.altKey) {
-                if (verts.length > 3) {
-                  verts.splice(bestIdx, 1);
-                  applyPolygonVerticesToZones(verts);
-                  await saveBordersToCloud();
-                  showToast(`🗑️ Removed corner vertex. Boundary now has ${verts.length} corners.`);
-                }
-                return;
+            if (bestIdx !== -1 && bestDist <= 2.2 && evt && evt.altKey) {
+              if (verts.length > 3) {
+                verts.splice(bestIdx, 1);
+                applyPolygonVerticesToZones(verts);
+                await saveBordersToCloud();
+                showToast(`Removed corner — ${verts.length} corners remaining.`);
               }
-              state.draggingVertexIndex = bestIdx;
-              verts[bestIdx] = { row: r, col: c };
-              applyPolygonVerticesToZones(verts);
-            } else if (bestIdx !== -1) {
+              return;
+            }
+            if (bestIdx !== -1) {
               state.draggingVertexIndex = bestIdx;
               verts[bestIdx] = { row: r, col: c };
               applyPolygonVerticesToZones(verts);
@@ -1788,7 +2161,6 @@
           return;
         }
 
-        // Mode C: Drag Rectangle Fence Box
         if (state.borderBrush === "fence_box") {
           if (!isDrag) {
             state.fenceBoxDragStart = { row: r, col: c };
@@ -1798,7 +2170,6 @@
           return;
         }
 
-        // Mode D: Click or Drag-Box Structure Footprints (House Roof, Garage/Shed, Patio/Driveway)
         if (STRUCTURE_BOX_BRUSHES.has(state.borderBrush)) {
           if (!isDrag) {
             state.structureBoxDragStart = { row: r, col: c };
@@ -1808,7 +2179,6 @@
           return;
         }
 
-        // Mode E: Individual 3m Square Zone Brushes (Fence Line, Lawn/Erase, Septic, OOB)
         setCellZoneType(r, c, state.borderBrush);
         renderGrid();
         if (!isDrag) {
@@ -1818,11 +2188,20 @@
       }
 
       if (state.interactionMode === "plant" && !isDrag) {
-        const subSlot = document.getElementById("subSlotPickerSelect").value || "C";
+        const zone = getCellZoneType(r, c);
+        if (["house_roof", "garage_shed", "driveway_patio", "road_apron"].includes(zone)) {
+          renderGrid();
+          await renderSelectedSquareInspector();
+          showToast(`🏠 ${cellLabel(r, c)} is marked as ${FRIENDLY_ZONE_NAMES[zone]} — tap an open lawn square to plant!`);
+          return;
+        }
+        const subSlot = document.getElementById("subSlotPickerSelect")?.value || state.selectedSubSlot || "C";
         await plantSpeciesInSquare(r, c, state.selectedSpeciesId, subSlot);
         return;
       }
 
+      setSidebarTab("square");
+      renderVisualCatalog();
       renderGrid();
       await renderSelectedSquareInspector();
     }
@@ -1847,10 +2226,9 @@
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
         await refreshSavedYardsList();
-        const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        updateCloudMemoryStatus("saved", `🟢 Fence & Yard Remembered (${nowStr})`);
+        updateCloudMemoryStatus("saved", "☁️ Auto-saved");
         if (!silent) {
-          showToast("🪵 Saved & remembered your custom polygon boundary & yard in Cloud Firestore!");
+          showToast("✨ Yard outline auto-saved!");
         }
       }
     }
@@ -1871,23 +2249,27 @@
       });
       if (resp.ok) {
         state.yard = await resp.json();
-        showToast(`🌱 Planted in ${cellLabel(r, c)} [${subSlot}]!`);
+        const spec = state.catalog.find(s => s.species_id === speciesId);
+        showToast(`${spec?.emoji || "🌱"} Planted ${spec?.common_name || "plant"} in ${cellLabel(r, c)}!`);
         renderGrid();
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
       }
     }
 
-    function openQuickPlantInSelectedSquare() {
-      setInteractionMode("plant");
-      plantSpeciesInSquare(
-        state.selectedCell.row,
-        state.selectedCell.col,
-        state.selectedSpeciesId,
-        state.selectedSubSlot || "C"
-      );
+    function copyCurrentW3W() {
+      const txt = document.getElementById("inspW3W")?.textContent || "";
+      if (!txt || !navigator.clipboard) return;
+      navigator.clipboard.writeText(txt).then(() => {
+        const hint = document.getElementById("copyW3WHint");
+        if (hint) {
+          hint.textContent = "✓ Copied!";
+          setTimeout(() => { hint.textContent = "Copy"; }, 1800);
+        }
+      }).catch(() => {});
     }
 
+    // --- RIGHT SIDEBAR: SQUARE INSPECTOR & MY GARDEN ---
     async function renderSelectedSquareInspector() {
       if (!state.yard) return;
       const { row, col } = state.selectedCell;
@@ -1896,22 +2278,22 @@
       const sun = getCellSunExposure(row, col);
 
       document.getElementById("inspCellLabel").textContent = lbl;
-      document.getElementById("inspZoneBadge").textContent = `📐 ${zone.replace("_", " ").toUpperCase()}`;
+      document.getElementById("inspZoneBadge").textContent = FRIENDLY_ZONE_NAMES[zone] || "🌿 Open Lawn";
       document.getElementById("inspSunBadge").textContent =
-        sun === "full_sun" ? "☀️ Full Sun" : (sun === "part_shade" ? "⛅ Part Shade" : "🌑 Full Shade");
+        sun === "full_sun" ? "☀️ Full Sun" : (sun === "part_shade" ? "⛅ Part Shade" : "🌑 Shade");
 
-      // Resolve W3W for selected square
+      const slotLbl = document.getElementById("activeSlotSummaryLabel");
+      if (slotLbl) slotLbl.textContent = SUB_SLOT_NAMES[state.selectedSubSlot] || state.selectedSubSlot;
+
       const w3wResp = await fetch(
         `/api/v1/w3w/convert-to-3wa?parcel_center_lat=${state.yard.parcel_center_lat}&parcel_center_lng=${state.yard.parcel_center_lng}&row=${row}&col=${col}`
       );
       if (w3wResp.ok) {
         const w3wData = await w3wResp.json();
         document.getElementById("inspW3W").textContent = w3wData.w3w;
-        document.getElementById("inspCoords").textContent =
-          `${w3wData.lat}, ${w3wData.lng} · 3.0m × 3.0m (9.84 ft × 9.84 ft)`;
+        document.getElementById("inspCoords").textContent = `10 × 10 ft square (3m × 3m) · ${w3wData.lat}, ${w3wData.lng}`;
       }
 
-      // Render 3x3 Sub-Square Micro-Grid
       const cellPlants = (state.yard.plants || []).filter(p => p.square.row === row && p.square.col === col);
       const subGridEl = document.getElementById("subSquareGrid");
       subGridEl.innerHTML = SUB_SLOTS.map(slot => {
@@ -1920,25 +2302,23 @@
         return `
           <button
             onclick="selectSubSlot('${slot}')"
-            class="h-12 rounded-lg border text-xs flex flex-col items-center justify-center transition ${
+            class="h-11 rounded-lg border text-xs flex flex-col items-center justify-center transition ${
               slotPlant
                 ? "bg-emerald-100/90 border-emerald-400 text-emerald-950 font-bold"
-                : "bg-white/90 hover:bg-emerald-50 border-stone-200 text-stone-500"
+                : "bg-white hover:bg-emerald-50 border-stone-200 text-stone-500"
             } ${isActiveSlot ? "ring-2 ring-emerald-700" : ""}"
           >
             <span class="text-[10px] font-mono-code opacity-75">${slot}</span>
-            <span class="text-sm">${slotPlant ? slotPlant.emoji : "＋"}</span>
+            <span class="text-sm">${slotPlant ? escapeHtml(slotPlant.emoji) : "＋"}</span>
           </button>
         `;
       }).join("");
 
-      // Render Plant Cards inside this 3m x 3m Square
       const container = document.getElementById("squarePlantsContainer");
       if (cellPlants.length === 0) {
         container.innerHTML = `
-          <div class="rounded-xl bg-stone-50 border border-dashed border-stone-300 p-4 text-center text-xs text-stone-500">
-            No trees or plants in <strong>${lbl}</strong> yet.<br/>
-            Click <strong>+ Plant Here</strong> above or choose a species from the toolbar!
+          <div class="rounded-xl bg-emerald-50/40 border border-dashed border-emerald-200 p-3 text-center text-xs text-stone-600">
+            <strong>${lbl}</strong> is open — click <strong>+ Plant</strong> on any species card below to add it here!
           </div>
         `;
         return;
@@ -1950,39 +2330,36 @@
       container.innerHTML = cellPlants.map(p => {
         const ch = checkMap[p.plant_id];
         const warningsHtml = (ch?.warnings || []).map(w =>
-          `<div class="text-[11px] bg-amber-50 text-amber-900 border border-amber-300 rounded-lg px-2 py-1">⚠️ ${w}</div>`
+          `<div class="text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-2.5 py-1.5">💡 ${escapeHtml(w)}</div>`
         ).join("");
-        const logsHtml = (p.care_logs || []).slice(0, 2).map(l =>
-          `<div class="text-[11px] text-stone-600 flex items-center justify-between">
-            <span>✓ <strong>${l.action}</strong>: ${l.note || ""}</span>
-            <span class="font-mono-code text-[10px] text-stone-400">${(l.logged_at || "").slice(0, 10)}</span>
-          </div>`
-        ).join("");
+        const lastLog = (p.care_logs || [])[0];
+        const lastLogHtml = lastLog
+          ? `<div class="text-[11px] text-stone-500">Last care: <strong class="text-emerald-800">${escapeHtml(lastLog.action)}</strong> (${escapeHtml((lastLog.logged_at || "").slice(0, 10))})</div>`
+          : "";
 
         return `
           <div class="rounded-xl bg-stone-50/90 border border-stone-200 p-3 flex flex-col gap-2">
             <div class="flex items-start justify-between gap-2">
               <div>
-                <div class="flex items-center gap-1.5">
-                  <span class="text-lg">${p.emoji}</span>
-                  <span class="font-bold text-xs text-stone-900">${p.nickname || p.common_name}</span>
-                  <span class="font-mono-code text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900">[${p.sub_slot}]</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-lg">${escapeHtml(p.emoji)}</span>
+                  <span class="font-bold text-xs text-stone-900">${escapeHtml(p.nickname || p.common_name)}</span>
+                  <span class="font-mono-code text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900">${escapeHtml(p.sub_slot)}</span>
                 </div>
-                <div class="text-[11px] italic text-stone-500">${p.scientific_name} · Spread: ${p.mature_spread_ft}ft</div>
+                <div class="text-[11px] text-stone-500">Mature width: ${p.mature_spread_ft} ft</div>
+                ${lastLogHtml}
               </div>
-              <button onclick="removePlant('${p.plant_id}')" class="text-[11px] text-rose-600 hover:underline font-semibold">Remove</button>
+              <button onclick="removePlant('${escapeHtml(p.plant_id)}')" class="text-[11px] text-stone-400 hover:text-rose-600 font-semibold transition">Remove</button>
             </div>
 
             ${warningsHtml}
 
-            <div class="flex flex-wrap items-center gap-1 pt-1">
-              <button onclick="logCare('${p.plant_id}', 'watered')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-semibold transition">💧 Watered</button>
-              <button onclick="logCare('${p.plant_id}', 'pruned')" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-semibold transition">✂️ Pruned</button>
-              <button onclick="logCare('${p.plant_id}', 'fertilized')" class="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-semibold transition">🌱 Fed</button>
-              <button onclick="logCare('${p.plant_id}', 'harvested')" class="px-2 py-1 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-900 text-[11px] font-semibold transition">🧺 Harvest/Bloom</button>
+            <div class="grid grid-cols-4 gap-1 pt-0.5">
+              <button onclick="logCare('${escapeHtml(p.plant_id)}', 'watered')" class="py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-semibold transition">💧 Water</button>
+              <button onclick="logCare('${escapeHtml(p.plant_id)}', 'pruned')" class="py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-semibold transition">✂️ Prune</button>
+              <button onclick="logCare('${escapeHtml(p.plant_id)}', 'fertilized')" class="py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-semibold transition">🌱 Feed</button>
+              <button onclick="logCare('${escapeHtml(p.plant_id)}', 'harvested')" class="py-1 rounded-lg bg-pink-100 hover:bg-pink-200 text-pink-900 text-[11px] font-semibold transition">🧺 Harvest</button>
             </div>
-
-            ${logsHtml ? `<div class="border-t border-stone-200/70 pt-1.5 flex flex-col gap-1">${logsHtml}</div>` : ""}
           </div>
         `;
       }).join("");
@@ -2006,7 +2383,7 @@
       });
       if (resp.ok) {
         state.yard = await resp.json();
-        showToast(`✓ Logged '${action}' care event!`);
+        showToast(`💧 Logged '${action}'!`);
         renderGrid();
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
@@ -2029,102 +2406,124 @@
       }
     }
 
-    async function refreshYardAnalysis() {
-      const resp = await fetch(`/api/v1/yard/${state.yardId}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parcel_center_lat: state.yard.parcel_center_lat,
-          parcel_center_lng: state.yard.parcel_center_lng,
-          usda_zone: state.yard.usda_zone,
-          zones: state.yard.zones,
-          plants: state.yard.plants,
-        }),
-      });
-      if (resp.ok) {
-        state.yard.analysis = await resp.json();
-        renderAnalysisSidebar();
-      }
-    }
-
     function renderAnalysisSidebar() {
       const rep = state.yard?.analysis;
       if (!rep) return;
 
-      document.getElementById("totalPlantsBadge").textContent = `${rep.total_plants} Plantings`;
+      const total = rep.total_plants || 0;
+      document.getElementById("totalPlantsBadge").textContent = `${total}`;
+      const waterDot = document.getElementById("gardenWaterAlertDot");
+      if (waterDot) {
+        waterDot.classList.toggle("hidden", (rep.plants_needing_attention || 0) === 0);
+      }
+
+      const heroEmoji = document.getElementById("gardenHeroEmoji");
+      const heroTitle = document.getElementById("gardenHeroTitle");
+      const heroSub = document.getElementById("gardenHeroSub");
+      if (heroEmoji && heroTitle && heroSub) {
+        if (total === 0) {
+          heroEmoji.textContent = "🪴";
+          heroTitle.textContent = "Ready for your first tree or garden bed!";
+          heroSub.textContent = "Switch to 'Selected Square' to browse plants matched to your climate zone.";
+        } else if (rep.root_conflict_count > 0) {
+          heroEmoji.textContent = "💡";
+          heroTitle.textContent = `${rep.root_conflict_count} spacing tip${rep.root_conflict_count > 1 ? "s" : ""} to review`;
+          heroSub.textContent = "A tree with wide roots is close to a building or utility zone.";
+        } else if (rep.plants_needing_attention > 0) {
+          heroEmoji.textContent = "💧";
+          heroTitle.textContent = `${rep.plants_needing_attention} plant${rep.plants_needing_attention > 1 ? "s" : ""} would love water today`;
+          heroSub.textContent = "Tap 💧 next to any plant below to log watering in 1 click.";
+        } else {
+          heroEmoji.textContent = "🌟";
+          heroTitle.textContent = `Your garden is thriving (${total} planted)!`;
+          heroSub.textContent = `Every plant fits safely with your home and Zone ${rep.usda_zone} climate.`;
+        }
+      }
+
       const checks = rep.plant_checks || [];
       const sunMatched = checks.filter(c => c.sun_compatible).length;
       const canopyEl = document.getElementById("metricCanopySun");
       const canopyStatusEl = document.getElementById("metricCanopyStatus");
       if (canopyEl && canopyStatusEl) {
-        canopyEl.textContent = `${sunMatched}/${rep.total_plants} Ideal`;
-        const allSunOk = sunMatched === rep.total_plants;
-        canopyStatusEl.textContent = allSunOk
-          ? `✓ Zone ${rep.usda_zone} · Sun Matched`
-          : `⚠️ ${rep.total_plants - sunMatched} Shade/Sun Warning`;
+        canopyEl.textContent = total === 0 ? "—" : `${sunMatched}/${total} Ideal`;
+        const allSunOk = sunMatched === total;
+        canopyStatusEl.textContent = allSunOk ? `✓ Zone ${rep.usda_zone}` : `${total - sunMatched} Shade Tip`;
         canopyStatusEl.className = allSunOk
           ? "text-[10px] text-emerald-700 font-semibold"
           : "text-[10px] text-amber-700 font-semibold";
       }
 
       document.getElementById("metricRootSafety").textContent =
-        rep.root_conflict_count === 0 ? "✓ 0 Conflicts" : `⚠️ ${rep.root_conflict_count} Alert(s)`;
+        rep.root_conflict_count === 0 ? "✓ Safe" : `💡 ${rep.root_conflict_count} Tip`;
       document.getElementById("metricCareTasks").textContent =
-        rep.plants_needing_attention === 0 ? "✓ All Hydrated" : `${rep.plants_needing_attention} Needs Water`;
+        rep.plants_needing_attention === 0 ? "✓ Hydrated" : `💧 ${rep.plants_needing_attention} Thirsty`;
 
       const recsEl = document.getElementById("analysisRecommendations");
       recsEl.innerHTML = (rep.recommendations || []).map(r => `
-        <div class="px-2.5 py-1.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-emerald-950">
-          • ${r}
+        <div class="px-3 py-2 rounded-xl bg-stone-50 border border-stone-200/80 text-stone-700 leading-snug">
+          • ${escapeHtml(r)}
         </div>
       `).join("");
 
       const listEl = document.getElementById("allPlantsList");
-      listEl.innerHTML = (state.yard.plants || []).map(p => `
-        <button
-          onclick="jumpToSquare(${p.square.row}, ${p.square.col})"
-          class="w-full text-left px-2.5 py-1.5 rounded-xl bg-stone-50 hover:bg-emerald-50 border border-stone-200 flex items-center justify-between text-xs transition"
-        >
-          <span class="font-semibold text-stone-800 truncate">${p.emoji} ${p.nickname || p.common_name}</span>
-          <span class="font-mono-code text-[10px] text-emerald-800 font-semibold ml-2 whitespace-nowrap">${p.square.label} [${p.sub_slot}]</span>
-        </button>
-      `).join("");
+      const plants = state.yard.plants || [];
+      if (plants.length === 0) {
+        listEl.innerHTML = `
+          <div class="rounded-xl bg-stone-50 border border-dashed border-stone-200 p-4 text-center text-xs text-stone-500">
+            Nothing planted yet — pick a square on your yard to begin!
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = plants.map(p => {
+        const needsWater = p.health_status === "needs_water";
+        return `
+          <div class="px-2.5 py-2 rounded-xl bg-stone-50 hover:bg-emerald-50/70 border border-stone-200 flex items-center justify-between gap-2 text-xs transition">
+            <button onclick="jumpToSquare(${p.square.row}, ${p.square.col})" class="flex-1 text-left min-w-0 flex items-center gap-2">
+              <span class="text-base shrink-0">${escapeHtml(p.emoji)}</span>
+              <div class="min-w-0">
+                <div class="font-semibold text-stone-800 truncate">${escapeHtml(p.nickname || p.common_name)}</div>
+                <div class="text-[10px] font-mono-code text-stone-500">${escapeHtml(p.square.label)} [${escapeHtml(p.sub_slot)}]</div>
+              </div>
+            </button>
+            <button
+              onclick="logCare('${escapeHtml(p.plant_id)}', 'watered')"
+              class="px-2 py-1 rounded-lg text-[11px] font-semibold transition shrink-0 ${
+                needsWater
+                  ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
+                  : "bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200"
+              }"
+              title="Log 1-tap watering"
+            >
+              💧 ${needsWater ? "Water" : "✓"}
+            </button>
+          </div>
+        `;
+      }).join("");
     }
 
     async function jumpToSquare(r, c) {
       state.selectedCell = { row: r, col: c };
+      setSidebarTab("square");
+      renderVisualCatalog();
       renderGrid();
       await renderSelectedSquareInspector();
     }
 
-    async function saveYardToCloud(silent = false) {
-      updateCloudMemoryStatus("saving");
-      const resp = await fetch(`/api/v1/yard/${state.yardId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(state.yard),
-      });
-      if (resp.ok) {
-        state.yard = await resp.json();
-        state.hasUnsavedBorderChanges = false;
-        syncHeaderAndControls();
-        renderGrid();
-        await renderSelectedSquareInspector();
-        renderAnalysisSidebar();
-        await refreshSavedYardsList();
-        const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        updateCloudMemoryStatus("saved", `🟢 Fence & Yard Remembered (${nowStr})`);
-        if (!silent) showToast("💾 Saved & remembered your Fence, Yard Map & W3W Grid in Cloud Firestore!");
-      }
-    }
-
+    let toastTimer = null;
     function showToast(msg) {
       const el = document.getElementById("saveStatusToast");
+      if (!el) return;
       el.textContent = msg;
-      setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 4000);
+      el.classList.remove("hidden");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.add("hidden");
+      }, 3600);
     }
 
-    // Address Autocomplete & Geocode
+    // --- ADDRESS AUTOCOMPLETE & GEOCODE ---
     function setupAutocomplete() {
       const input = document.getElementById("addressInput");
       const dropdown = document.getElementById("autocompleteDropdown");
@@ -2149,15 +2548,21 @@
           dropdown.innerHTML = suggestions.map(s => `
             <button
               type="button"
-              onclick="selectAddressSuggestion('${s.formatted_address.replace(/'/g, "\\'")}', ${s.fallback_lat}, ${s.fallback_lng})"
-              class="w-full text-left px-3.5 py-2 hover:bg-emerald-50 text-xs border-b border-stone-100 flex items-center justify-between"
+              onclick="selectAddressSuggestion('${s.formatted_address.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', ${s.fallback_lat}, ${s.fallback_lng})"
+              class="w-full text-left px-3.5 py-2.5 hover:bg-emerald-50 text-xs border-b border-stone-100 flex items-center justify-between gap-2"
             >
-              <span class="font-semibold text-stone-800">📍 ${s.formatted_address}</span>
-              <span class="text-[10px] font-mono-code text-emerald-700">${s.source} ($0)</span>
+              <span class="font-semibold text-stone-800 truncate">📍 ${escapeHtml(s.formatted_address)}</span>
+              <span class="text-[10px] text-emerald-700 font-medium whitespace-nowrap">Select →</span>
             </button>
           `).join("");
           dropdown.classList.remove("hidden");
         }, 220);
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.classList.add("hidden");
+        }
       });
     }
 
@@ -2170,13 +2575,14 @@
     async function lookupTypedAddress() {
       const addr = document.getElementById("addressInput").value.trim();
       if (!addr) return;
+      document.getElementById("autocompleteDropdown")?.classList.add("hidden");
       await runGeocode(addr, null, null, false);
     }
 
     async function runGeocode(address, fallbackLat, fallbackLng, forceResetBorder = false) {
       showToast(forceResetBorder
-        ? "🔄 Resetting fence & land footprint to default OSM / parcel bounds..."
-        : "🛰️ Fetching parcel footprint, OSM buildings & checking remembered fence borders..."
+        ? "🔄 Resetting lot outline to auto-detected footprints..."
+        : "🛰️ Loading aerial view, climate zone & building outlines..."
       );
       const resp = await fetch("/api/v1/yard/geocode", {
         method: "POST",
@@ -2205,14 +2611,18 @@
         ensureBorderVertices();
         await refreshSavedYardsList();
         syncHeaderAndControls();
-        renderGrid();
+        renderVisualCatalog();
+
+        if (geoData.remembered_custom_border) {
+          setActiveStep(3);
+          showToast("🏡 Welcome back! Loaded your saved yard layout & plants.");
+        } else {
+          setActiveStep(2);
+          showToast("✨ Aerial view ready! Check your fence & buildings, then click Start Planting →");
+        }
+
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
-        if (geoData.remembered_custom_border) {
-          showToast("🪵 Loaded your remembered custom fence, structures & property border from Cloud Firestore!");
-        } else {
-          showToast("✓ Loaded property parcel! Use '🪵 Adjust Fence & Yard Border' or '🏡 Land & Zones' to customize.");
-        }
       }
     }
 

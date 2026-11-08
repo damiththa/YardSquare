@@ -46,7 +46,7 @@
       "pos": [40, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/index.html", "line": 1, "end_line": 2222, "label": "Default-ON Translucent Satellite Grid, Polygon Builder, Drag-Box Structure Tools & URL/Storage Yard ID" }
+        { "path": "app/static/index.html", "line": 1, "end_line": 2632, "label": "Guided 3-Step Studio, 2-Tab Shape Yard, Visual Plant Cards, 2-Tab Garden Companion & Ultra-HD Aerial Grid" }
       ]
     },
     {
@@ -59,8 +59,8 @@
       "pos": [40, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/yard_walk.html", "line": 1, "end_line": 112, "label": "Phase 2 mobile GPS square matcher & 1-tap care view" },
-        { "path": "app/static/sw.js", "line": 1, "end_line": 22, "label": "Offline Service Worker cache" }
+        { "path": "app/static/yard_walk.html", "line": 1, "end_line": 261, "label": "Address-keyed mobile GPS square matcher, saved yard switcher & 1-tap care view" },
+        { "path": "app/static/sw.js", "line": 1, "end_line": 31, "label": "Offline Service Worker cache (v2)" }
       ]
     },
     {

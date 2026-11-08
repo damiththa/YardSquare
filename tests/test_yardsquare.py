@@ -276,3 +276,23 @@ def test_satellite_png_patch_decoder_and_bbox_math() -> None:
     assert patches[8][12]["chroma"] == 0.0
     # Lawn cell R2-C2 (index 1, 1) has high Excess Green Index (2*150 - 55 - 45 = 200)
     assert patches[1][1]["exg"] > 150.0
+
+
+def test_mobile_walk_route_and_active_yard_sync() -> None:
+    walk_resp = client.get("/walk")
+    assert walk_resp.status_code == 200
+    html_body = walk_resp.text
+    assert "yardsquare_active_yard_id" in html_body
+    assert "/api/v1/yard/list" in html_body
+    assert "/api/v1/yard/yard_default/plants/" not in html_body
+
+    studio_resp = client.get("/")
+    assert studio_resp.status_code == 200
+    studio_html = studio_resp.text
+    assert 'id="walkModeLink"' in studio_html
+    assert 'id="stepTab-1"' in studio_html
+    assert 'id="borderSubTabBtn-fence"' in studio_html
+    assert 'id="borderSubTabBtn-structures"' in studio_html
+    assert 'id="visualCatalogCards"' in studio_html
+    assert 'id="sidebarTabBtn-garden"' in studio_html
+
