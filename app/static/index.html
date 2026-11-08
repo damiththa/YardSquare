@@ -189,6 +189,9 @@
             <span id="cloudMemoryBadge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-200 border border-emerald-700/60">
               ☁️ Saved
             </span>
+            <button id="btnManualSaveYard" onclick="manualSaveYard()" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-700/90 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-sm transition" title="Save & verify your yard layout and all planted trees in Cloud Firestore">
+              💾 Save
+            </button>
           </div>
           <p id="headerActiveAddress" class="text-[11px] text-emerald-200/75 truncate max-w-[340px] sm:max-w-[460px]">
             742 Evergreen Terrace, Montpelier, VT 05602
@@ -459,22 +462,23 @@
           <div class="flex flex-wrap items-center gap-2">
             <div class="inline-flex rounded-xl bg-stone-100 p-1 gap-1">
               <button onclick="setPlantStepAction('inspect')" id="plantActionBtn-inspect" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-white text-emerald-950 shadow-sm">
-                👆 Explore & Care
+                👆 Inspect Square
               </button>
               <button onclick="setPlantStepAction('plant')" id="plantActionBtn-plant" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900">
                 🌱 Tap Map to Plant
               </button>
             </div>
 
-            <span id="step3HelperText" class="text-xs text-stone-600">
-              Click any square on your yard to inspect it, water plants, or pick a species on the right.
+            <span id="step3HelperText" class="text-xs text-stone-600 hidden xl:inline">
+              Pick any tree or bed, then click <strong>+ Plant</strong> or tap a lawn square.
             </span>
           </div>
 
-          <!-- Active Planting Pill (Visible when 'Tap Map to Plant' is active) -->
-          <div id="activePlantBrushBar" class="hidden flex flex-wrap items-center gap-2 text-xs bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-            <span class="text-emerald-950 font-semibold" id="activePlantBrushLabel">🍎 Honeycrisp Apple Tree</span>
-            <select id="subSlotPickerSelect" onchange="selectSubSlot(this.value)" class="px-2 py-0.5 rounded-lg bg-white border border-emerald-300 text-[11px] font-semibold text-stone-800">
+          <!-- Always-Interactive Species & Slot Bar in Step 3 -->
+          <div id="activePlantBrushBar" class="flex flex-wrap items-center gap-1.5 text-xs bg-emerald-50/90 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+            <select id="activePlantSpeciesSelect" onchange="onTopSpeciesSelectChange(this.value)" aria-label="Select tree, shrub, or bed to plant" class="max-w-[215px] px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-xs font-semibold text-emerald-950 focus:outline-none cursor-pointer">
+            </select>
+            <select id="subSlotPickerSelect" onchange="selectSubSlot(this.value)" aria-label="Select placement slot within square" class="px-2 py-1 rounded-lg bg-white border border-emerald-300 text-[11px] font-semibold text-stone-800 focus:outline-none cursor-pointer">
               <option value="C">Center (Full Square)</option>
               <option value="NW">NW Corner (1m)</option>
               <option value="N">North Edge (1m)</option>
@@ -485,8 +489,8 @@
               <option value="S">South Edge (1m)</option>
               <option value="SE">SE Corner (1m)</option>
             </select>
-            <button onclick="focusPlantCatalogInSidebar()" class="text-emerald-800 hover:underline font-semibold">
-              Change Plant →
+            <button id="step3QuickPlantBtn" onclick="plantFromCard(state.selectedSpeciesId)" class="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm whitespace-nowrap transition">
+              + Plant in R4-C7
             </button>
           </div>
         </div>
@@ -801,6 +805,7 @@
       }
 
       state.selectedSpeciesId = state.catalog[0]?.species_id || "malus_honeycrisp";
+      populateTopSpeciesSelect();
       ensureBorderVertices();
       populateSavedYardsDropdown();
       syncHeaderAndControls();
@@ -952,9 +957,13 @@
           ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-emerald-700 text-white shadow-sm"
           : "px-3 py-1.5 rounded-lg text-xs font-semibold transition text-stone-600 hover:text-stone-900";
       }
-      document.getElementById("step3HelperText")?.classList.toggle("hidden", isPlant);
-      document.getElementById("activePlantBrushBar")?.classList.toggle("hidden", !isPlant);
-      syncActivePlantBrushLabel();
+      const helper = document.getElementById("step3HelperText");
+      if (helper) {
+        helper.innerHTML = isPlant
+          ? "Tap any lawn square on the map to plant the selected species:"
+          : "Click any square to inspect, or pick a species to plant:";
+      }
+      syncActivePlantControls();
       renderGrid();
     }
 
@@ -1060,18 +1069,87 @@
       renderVisualCatalog();
     }
 
-    function syncActivePlantBrushLabel() {
-      const spec = state.catalog.find(s => s.species_id === state.selectedSpeciesId);
-      const el = document.getElementById("activePlantBrushLabel");
-      if (spec && el) {
-        el.textContent = `${spec.emoji} ${spec.common_name}`;
+    function populateTopSpeciesSelect() {
+      const sel = document.getElementById("activePlantSpeciesSelect");
+      if (!sel) return;
+      sel.innerHTML = (state.catalog || []).map(item =>
+        `<option value="${escapeHtml(item.species_id)}">${escapeHtml(item.emoji)} ${escapeHtml(item.common_name)}</option>`
+      ).join("");
+      syncActivePlantControls();
+    }
+
+    function getSelectedSlotOccupant() {
+      if (!state.yard || !Array.isArray(state.yard.plants)) return null;
+      const { row, col } = state.selectedCell;
+      const slot = state.selectedSubSlot || "C";
+      return [...state.yard.plants].reverse().find(
+        p => p.square.row === row && p.square.col === col && p.sub_slot === slot
+      ) || null;
+    }
+
+    function syncActivePlantControls() {
+      const spSel = document.getElementById("activePlantSpeciesSelect");
+      if (spSel && state.selectedSpeciesId) {
+        spSel.value = state.selectedSpeciesId;
+      }
+      const slotSel = document.getElementById("subSlotPickerSelect");
+      if (slotSel) {
+        slotSel.value = state.selectedSubSlot || "C";
+      }
+      const quickBtn = document.getElementById("step3QuickPlantBtn");
+      if (quickBtn) {
+        const lbl = cellLabel(state.selectedCell.row, state.selectedCell.col);
+        const slotSuffix = (state.selectedSubSlot && state.selectedSubSlot !== "C") ? ` [${state.selectedSubSlot}]` : "";
+        const occupant = getSelectedSlotOccupant();
+        quickBtn.textContent = occupant ? `↻ Replace in ${lbl}${slotSuffix}` : `+ Plant in ${lbl}${slotSuffix}`;
+      }
+    }
+
+    function onTopSpeciesSelectChange(speciesId) {
+      if (!speciesId) return;
+      state.selectedSpeciesId = speciesId;
+      const spec = state.catalog.find(s => s.species_id === speciesId);
+      const searchEl = document.getElementById("catalogSearchInput");
+      if (searchEl && searchEl.value.trim()) {
+        const q = searchEl.value.trim().toLowerCase();
+        if (spec && !`${spec.common_name} ${spec.scientific_name} ${spec.care_summary}`.toLowerCase().includes(q)) {
+          searchEl.value = "";
+        }
+      }
+      if (state.catalogCategory !== "all" && spec) {
+        const inTrees = ["fruit_tree", "shade_tree", "evergreen_tree"].includes(spec.category);
+        const inShrubs = spec.category === "flowering_shrub";
+        const inBeds = ["vegetable_herb", "perennial", "groundcover_vine"].includes(spec.category);
+        if (
+          (state.catalogCategory === "trees" && !inTrees) ||
+          (state.catalogCategory === "shrubs" && !inShrubs) ||
+          (state.catalogCategory === "beds" && !inBeds)
+        ) {
+          setCatalogCategory("all");
+        }
+      }
+      syncActivePlantControls();
+      renderVisualCatalog();
+      if (state.activeStep === 3 && state.interactionMode !== "plant") {
+        setPlantStepAction("plant");
+      }
+      if (spec) {
+        showToast(`${spec.emoji} ${spec.common_name} ready — tap any lawn square on the map or click + Plant!`);
       }
     }
 
     function selectCatalogSpecies(speciesId) {
       state.selectedSpeciesId = speciesId;
-      syncActivePlantBrushLabel();
+      if (state.activeStep !== 3) {
+        setActiveStep(3);
+      }
+      setPlantStepAction("plant");
+      syncActivePlantControls();
       renderVisualCatalog();
+      const spec = state.catalog.find(s => s.species_id === speciesId);
+      if (spec) {
+        showToast(`${spec.emoji} ${spec.common_name} selected — tap any lawn square on the map or click + Plant!`);
+      }
     }
 
     function renderVisualCatalog() {
@@ -1091,7 +1169,14 @@
         return true;
       });
 
+      if (filtered.length > 0 && !filtered.some(item => item.species_id === state.selectedSpeciesId)) {
+        state.selectedSpeciesId = filtered[0].species_id;
+      }
+      syncActivePlantControls();
+
       const targetLbl = cellLabel(state.selectedCell.row, state.selectedCell.col);
+      const occupant = getSelectedSlotOccupant();
+      const cardBtnText = occupant ? "↻ Replace" : "+ Plant";
 
       if (filtered.length === 0) {
         container.innerHTML = `
@@ -1135,9 +1220,9 @@
             <button
               onclick="event.stopPropagation(); plantFromCard('${escapeHtml(item.species_id)}')"
               class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold whitespace-nowrap shrink-0 shadow-sm transition"
-              title="Plant into selected square ${targetLbl}"
+              title="${occupant ? `Replace ${occupant.common_name} in ${targetLbl}` : `Plant into selected square ${targetLbl}`}"
             >
-              + Plant
+              ${cardBtnText}
             </button>
           </div>
         `;
@@ -1145,15 +1230,17 @@
     }
 
     async function plantFromCard(speciesId) {
-      state.selectedSpeciesId = speciesId;
-      syncActivePlantBrushLabel();
+      const chosenId = speciesId || document.getElementById("activePlantSpeciesSelect")?.value || state.selectedSpeciesId;
+      state.selectedSpeciesId = chosenId;
+      syncActivePlantControls();
       const { row, col } = state.selectedCell;
       const zone = getCellZoneType(row, col);
       if (["house_roof", "garage_shed", "driveway_patio", "road_apron"].includes(zone)) {
         showToast(`🏠 Square ${cellLabel(row, col)} is ${FRIENDLY_ZONE_NAMES[zone]} — click an open lawn square on the map first!`);
         return;
       }
-      await plantSpeciesInSquare(row, col, speciesId, state.selectedSubSlot || "C");
+      const subSlot = document.getElementById("subSlotPickerSelect")?.value || state.selectedSubSlot || "C";
+      await plantSpeciesInSquare(row, col, chosenId, subSlot);
     }
 
     function openQuickPlantInSelectedSquare() {
@@ -1772,7 +1859,8 @@
           const cellPlants = plantsByCell[cellKey] || [];
 
           if (cellPlants.length > 0) {
-            const primary = cellPlants[0];
+            const latestCenter = [...cellPlants].reverse().find(p => p.sub_slot === "C");
+            const primary = latestCenter || cellPlants[cellPlants.length - 1];
             const countBadge = cellPlants.length > 1
               ? `<span class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-900 text-white text-[9px] font-bold flex items-center justify-center">${cellPlants.length}</span>`
               : "";
@@ -2195,12 +2283,15 @@
           showToast(`🏠 ${cellLabel(r, c)} is marked as ${FRIENDLY_ZONE_NAMES[zone]} — tap an open lawn square to plant!`);
           return;
         }
+        const activeSpecies = document.getElementById("activePlantSpeciesSelect")?.value || state.selectedSpeciesId;
+        state.selectedSpeciesId = activeSpecies;
         const subSlot = document.getElementById("subSlotPickerSelect")?.value || state.selectedSubSlot || "C";
-        await plantSpeciesInSquare(r, c, state.selectedSpeciesId, subSlot);
+        await plantSpeciesInSquare(r, c, activeSpecies, subSlot);
         return;
       }
 
       setSidebarTab("square");
+      syncActivePlantControls();
       renderVisualCatalog();
       renderGrid();
       await renderSelectedSquareInspector();
@@ -2226,17 +2317,45 @@
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
         await refreshSavedYardsList();
-        updateCloudMemoryStatus("saved", "☁️ Auto-saved");
+        updateCloudMemoryStatus("saved", "☁️ Saved ✓");
         if (!silent) {
-          showToast("✨ Yard outline auto-saved!");
+          showToast("✨ Yard outline saved to Cloud!");
         }
       }
+    }
+
+    async function manualSaveYard() {
+      if (!state.yard) return;
+      updateCloudMemoryStatus("saving", "☁️ Saving...");
+      if (state.hasUnsavedBorderChanges) {
+        await saveBordersToCloud(true);
+      } else {
+        const resp = await fetch(`/api/v1/yard/${state.yardId}`);
+        if (resp.ok) {
+          state.yard = await resp.json();
+          ensureBorderVertices();
+          syncHeaderAndControls();
+          syncActivePlantControls();
+          renderVisualCatalog();
+          renderGrid();
+          await renderSelectedSquareInspector();
+          renderAnalysisSidebar();
+        }
+      }
+      const count = (state.yard?.plants || []).length;
+      updateCloudMemoryStatus("saved", "☁️ Saved ✓");
+      showToast(`💾 Saved! Your yard layout & ${count} planted item${count === 1 ? "" : "s"} are stored in Cloud.`);
     }
 
     async function plantSpeciesInSquare(r, c, speciesId, subSlot) {
       if (state.hasUnsavedBorderChanges) {
         await saveBordersToCloud(true);
       }
+      const targetSlot = subSlot || "C";
+      const previousOccupant = (state.yard?.plants || []).find(
+        p => p.square.row === r && p.square.col === c && p.sub_slot === targetSlot
+      );
+      updateCloudMemoryStatus("saving", "☁️ Planting...");
       const resp = await fetch(`/api/v1/yard/${state.yardId}/plants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2244,17 +2363,29 @@
           species_id: speciesId,
           row: r,
           col: c,
-          sub_slot: subSlot,
+          sub_slot: targetSlot,
         }),
       });
-      if (resp.ok) {
-        state.yard = await resp.json();
-        const spec = state.catalog.find(s => s.species_id === speciesId);
-        showToast(`${spec?.emoji || "🌱"} Planted ${spec?.common_name || "plant"} in ${cellLabel(r, c)}!`);
-        renderGrid();
-        await renderSelectedSquareInspector();
-        renderAnalysisSidebar();
+      if (!resp.ok) {
+        updateCloudMemoryStatus("saved", "☁️ Ready");
+        showToast("⚠️ Could not plant in that square — please try again.");
+        return;
       }
+      state.yard = await resp.json();
+      state.selectedSubSlot = targetSlot;
+      const spec = state.catalog.find(s => s.species_id === speciesId);
+      const slotTag = targetSlot !== "C" ? ` [${targetSlot}]` : "";
+      updateCloudMemoryStatus("saved", "☁️ Saved ✓");
+      if (previousOccupant && previousOccupant.species_id !== speciesId) {
+        showToast(`${spec?.emoji || "🌱"} Replaced ${previousOccupant.common_name} with ${spec?.common_name || "plant"} in ${cellLabel(r, c)}${slotTag}!`);
+      } else {
+        showToast(`${spec?.emoji || "🌱"} Planted ${spec?.common_name || "plant"} in ${cellLabel(r, c)}${slotTag}!`);
+      }
+      syncActivePlantControls();
+      renderVisualCatalog();
+      renderGrid();
+      await renderSelectedSquareInspector();
+      renderAnalysisSidebar();
     }
 
     function copyCurrentW3W() {
@@ -2284,6 +2415,7 @@
 
       const slotLbl = document.getElementById("activeSlotSummaryLabel");
       if (slotLbl) slotLbl.textContent = SUB_SLOT_NAMES[state.selectedSubSlot] || state.selectedSubSlot;
+      syncActivePlantControls();
 
       const w3wResp = await fetch(
         `/api/v1/w3w/convert-to-3wa?parcel_center_lat=${state.yard.parcel_center_lat}&parcel_center_lng=${state.yard.parcel_center_lng}&row=${row}&col=${col}`
@@ -2297,7 +2429,7 @@
       const cellPlants = (state.yard.plants || []).filter(p => p.square.row === row && p.square.col === col);
       const subGridEl = document.getElementById("subSquareGrid");
       subGridEl.innerHTML = SUB_SLOTS.map(slot => {
-        const slotPlant = cellPlants.find(p => p.sub_slot === slot);
+        const slotPlant = [...cellPlants].reverse().find(p => p.sub_slot === slot);
         const isActiveSlot = state.selectedSubSlot === slot;
         return `
           <button
@@ -2327,7 +2459,7 @@
       const checkMap = {};
       (state.yard.analysis?.plant_checks || []).forEach(ch => { checkMap[ch.plant_id] = ch; });
 
-      container.innerHTML = cellPlants.map(p => {
+      container.innerHTML = [...cellPlants].reverse().map(p => {
         const ch = checkMap[p.plant_id];
         const warningsHtml = (ch?.warnings || []).map(w =>
           `<div class="text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-2.5 py-1.5">💡 ${escapeHtml(w)}</div>`
@@ -2349,7 +2481,7 @@
                 <div class="text-[11px] text-stone-500">Mature width: ${p.mature_spread_ft} ft</div>
                 ${lastLogHtml}
               </div>
-              <button onclick="removePlant('${escapeHtml(p.plant_id)}')" class="text-[11px] text-stone-400 hover:text-rose-600 font-semibold transition">Remove</button>
+              <button onclick="removePlant('${escapeHtml(p.plant_id)}')" class="text-[11px] px-2 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold transition">Remove</button>
             </div>
 
             ${warningsHtml}
@@ -2367,8 +2499,8 @@
 
     function selectSubSlot(slot) {
       state.selectedSubSlot = slot;
-      const sel = document.getElementById("subSlotPickerSelect");
-      if (sel) sel.value = slot;
+      syncActivePlantControls();
+      renderVisualCatalog();
       renderSelectedSquareInspector();
     }
 
@@ -2399,7 +2531,10 @@
       });
       if (resp.ok) {
         state.yard = await resp.json();
+        updateCloudMemoryStatus("saved", "☁️ Saved ✓");
         showToast("Removed plant from square.");
+        syncActivePlantControls();
+        renderVisualCatalog();
         renderGrid();
         await renderSelectedSquareInspector();
         renderAnalysisSidebar();
@@ -2476,10 +2611,10 @@
         return;
       }
 
-      listEl.innerHTML = plants.map(p => {
+      listEl.innerHTML = [...plants].reverse().map(p => {
         const needsWater = p.health_status === "needs_water";
         return `
-          <div class="px-2.5 py-2 rounded-xl bg-stone-50 hover:bg-emerald-50/70 border border-stone-200 flex items-center justify-between gap-2 text-xs transition">
+          <div class="px-2.5 py-2 rounded-xl bg-stone-50 hover:bg-emerald-50/70 border border-stone-200 flex items-center justify-between gap-1.5 text-xs transition">
             <button onclick="jumpToSquare(${p.square.row}, ${p.square.col})" class="flex-1 text-left min-w-0 flex items-center gap-2">
               <span class="text-base shrink-0">${escapeHtml(p.emoji)}</span>
               <div class="min-w-0">
@@ -2487,17 +2622,26 @@
                 <div class="text-[10px] font-mono-code text-stone-500">${escapeHtml(p.square.label)} [${escapeHtml(p.sub_slot)}]</div>
               </div>
             </button>
-            <button
-              onclick="logCare('${escapeHtml(p.plant_id)}', 'watered')"
-              class="px-2 py-1 rounded-lg text-[11px] font-semibold transition shrink-0 ${
-                needsWater
-                  ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
-                  : "bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200"
-              }"
-              title="Log 1-tap watering"
-            >
-              💧 ${needsWater ? "Water" : "✓"}
-            </button>
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                onclick="logCare('${escapeHtml(p.plant_id)}', 'watered')"
+                class="px-2 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  needsWater
+                    ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
+                    : "bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200"
+                }"
+                title="Log 1-tap watering"
+              >
+                💧 ${needsWater ? "Water" : "✓"}
+              </button>
+              <button
+                onclick="removePlant('${escapeHtml(p.plant_id)}')"
+                class="px-1.5 py-1 rounded-lg text-[11px] font-semibold text-stone-400 hover:text-rose-700 hover:bg-rose-50 transition"
+                title="Remove plant"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         `;
       }).join("");
@@ -2506,6 +2650,7 @@
     async function jumpToSquare(r, c) {
       state.selectedCell = { row: r, col: c };
       setSidebarTab("square");
+      syncActivePlantControls();
       renderVisualCatalog();
       renderGrid();
       await renderSelectedSquareInspector();

@@ -296,3 +296,59 @@ def test_mobile_walk_route_and_active_yard_sync() -> None:
     assert 'id="visualCatalogCards"' in studio_html
     assert 'id="sidebarTabBtn-garden"' in studio_html
 
+
+def test_planting_same_slot_replaces_species_and_html_no_cache() -> None:
+    # 1. Plant Honeycrisp Apple in R9-C9 [C], then replace with Japanese Maple in R9-C9 [C]
+    r1 = client.post(
+        "/api/v1/yard/yard_default/plants",
+        json={"species_id": "malus_honeycrisp", "row": 8, "col": 8, "sub_slot": "C"},
+    )
+    assert r1.status_code == 200
+
+    r2 = client.post(
+        "/api/v1/yard/yard_default/plants",
+        json={"species_id": "acer_palmatum", "row": 8, "col": 8, "sub_slot": "C"},
+    )
+    assert r2.status_code == 200
+    yard_after_replace = r2.json()
+    slot_c_plants = [
+        p
+        for p in yard_after_replace["plants"]
+        if p["square"]["row"] == 8 and p["square"]["col"] == 8 and p["sub_slot"] == "C"
+    ]
+    assert len(slot_c_plants) == 1
+    assert slot_c_plants[0]["species_id"] == "acer_palmatum"
+    assert slot_c_plants[0]["common_name"] == "Japanese Maple"
+
+    # 2. Planting in a different 1m sub-slot (NW) of the same square keeps both slots intact
+    r3 = client.post(
+        "/api/v1/yard/yard_default/plants",
+        json={"species_id": "hydrangea_macrophylla", "row": 8, "col": 8, "sub_slot": "NW"},
+    )
+    assert r3.status_code == 200
+    cell_plants = [
+        p for p in r3.json()["plants"] if p["square"]["row"] == 8 and p["square"]["col"] == 8
+    ]
+    assert {p["sub_slot"]: p["species_id"] for p in cell_plants} == {
+        "C": "acer_palmatum",
+        "NW": "hydrangea_macrophylla",
+    }
+
+    # Clean up test square R9-C9
+    for p in cell_plants:
+        del_resp = client.delete(f"/api/v1/yard/yard_default/plants/{p['plant_id']}")
+        assert del_resp.status_code == 200
+
+    # 3. Verify no-cache HTML headers & interactive Step 3 species controls
+    home_resp = client.get("/")
+    assert home_resp.status_code == 200
+    assert "no-store" in home_resp.headers.get("cache-control", "")
+    assert 'id="activePlantSpeciesSelect"' in home_resp.text
+    assert 'id="step3QuickPlantBtn"' in home_resp.text
+    assert 'id="btnManualSaveYard"' in home_resp.text
+
+    walk_resp = client.get("/walk")
+    assert walk_resp.status_code == 200
+    assert "no-store" in walk_resp.headers.get("cache-control", "")
+
+

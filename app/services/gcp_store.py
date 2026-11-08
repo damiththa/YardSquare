@@ -455,6 +455,12 @@ class GCPDataStore:
             health_status=req.health_status,
             notes=req.notes,
         )
+        # Replace any existing plant occupying the exact same (row, col, sub_slot)
+        yard.plants = [
+            p
+            for p in yard.plants
+            if not (p.square.row == req.row and p.square.col == req.col and p.sub_slot == req.sub_slot)
+        ]
         yard.plants.append(new_plant)
         return self.save_yard(yard)
 

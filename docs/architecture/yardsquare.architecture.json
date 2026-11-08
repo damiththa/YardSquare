@@ -46,7 +46,7 @@
       "pos": [40, 95],
       "size": [168, 68],
       "sources": [
-        { "path": "app/static/index.html", "line": 1, "end_line": 2632, "label": "Guided 3-Step Studio, 2-Tab Shape Yard, Visual Plant Cards, 2-Tab Garden Companion & Ultra-HD Aerial Grid" }
+        { "path": "app/static/index.html", "line": 1, "end_line": 2777, "label": "Guided 3-Step Studio, 2-Tab Shape Yard, Synced Species Picker, Visual Plant Cards & Ultra-HD Aerial Grid" }
       ]
     },
     {
@@ -102,7 +102,7 @@
       "pos": [330, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/main.py", "line": 1, "end_line": 104, "label": "FastAPI entrypoint & /architecture" },
+        { "path": "app/main.py", "line": 1, "end_line": 111, "label": "FastAPI entrypoint, no-cache HTML headers & /architecture" },
         { "path": "app/routers/yard.py", "line": 1, "end_line": 190, "label": "Parcel geocode auto-fork, PUT /borders & plant router" },
         { "path": "app/routers/w3w.py", "line": 1, "end_line": 44, "label": "What3Words 3m square router" }
       ]
@@ -131,7 +131,7 @@
       "pos": [620, 240],
       "size": [168, 68],
       "sources": [
-        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 536, "label": "Firestore dev_*/prod_*, yard_addr_<hash> auto-fork & custom border memory" },
+        { "path": "app/services/gcp_store.py", "line": 1, "end_line": 542, "label": "Firestore dev_*/prod_*, slot-replacement planting, yard_addr_<hash> auto-fork & custom border memory" },
         { "path": "app/models.py", "line": 1, "end_line": 281, "label": "Pydantic v2 YardMap, border_vertices & YardSafetyReport schemas" }
       ]
     },

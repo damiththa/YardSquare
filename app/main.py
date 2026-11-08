@@ -86,19 +86,26 @@ def get_public_browser_config() -> Dict[str, Any]:
     }
 
 
+NO_CACHE_HTML_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
 @app.get("/", include_in_schema=False)
 def serve_yard_companion() -> FileResponse:
     """Serve Main Interactive YardSquare Companion Portal (`app/static/index.html`)."""
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"), headers=NO_CACHE_HTML_HEADERS)
 
 
 @app.get("/walk", include_in_schema=False)
 def serve_mobile_yard_walk() -> FileResponse:
     """Serve Mobile Backyard Walk & Offline Care Logger (`app/static/yard_walk.html`)."""
-    return FileResponse(os.path.join(STATIC_DIR, "yard_walk.html"))
+    return FileResponse(os.path.join(STATIC_DIR, "yard_walk.html"), headers=NO_CACHE_HTML_HEADERS)
 
 
 @app.get("/architecture", include_in_schema=False)
 def serve_archify_architecture() -> FileResponse:
     """Serve Interactive Archify v3.0 System Architecture Diagram (`app/static/architecture.html`)."""
-    return FileResponse(os.path.join(STATIC_DIR, "architecture.html"))
+    return FileResponse(os.path.join(STATIC_DIR, "architecture.html"), headers=NO_CACHE_HTML_HEADERS)
